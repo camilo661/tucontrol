@@ -22,17 +22,20 @@ class CompositeTvDiscovery(
         val byHost = mutableMapOf<String, TvDevice>()
         merge(*strategies.map { it.discover() }.toTypedArray()).collect { candidate ->
             val current = byHost[candidate.host]
-            if (current == null || priority(candidate) > priority(current)) {
-                val merged = if (current != null && candidate.name == candidate.brand.displayName) {
-                    candidate.copy(name = current.name)
-                } else {
-                    candidate
-                }
-                byHost[candidate.host] = merged
-                emit(merged)
+            val merged = when {
+                current == null -> candidate
+                priority(candidate) > priority(current) ->
+                    if (candidate.hasGenericName && !current.hasGenericName) candidate.copy(name = current.name) else candidate
+                // Same protocol found twice: keep whichever answer carries the TV's real name.
+                priority(candidate) == priority(current) && current.hasGenericName && !candidate.hasGenericName -> candidate
+                else -> return@collect
             }
+            byHost[candidate.host] = merged
+            emit(merged)
         }
     }
+
+    private val TvDevice.hasGenericName: Boolean get() = name == brand.displayName
 
     private fun priority(device: TvDevice): Int = when (device.brand) {
         // Android TV Remote works out of the box (PIN pairing) on Google TV models,

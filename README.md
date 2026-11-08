@@ -11,7 +11,7 @@ The UI is in Spanish; source code, identifiers and comments are in English.
 | | |
 |---|---|
 | 🎙️ **Voice + AI** | Spanish speech recognition. Simple commands are parsed offline in milliseconds; free-form phrases are interpreted by Claude (`claude-opus-5-5`) with a strict JSON schema. |
-| 📡 **Automatic discovery** | Finds TVs on the same Wi‑Fi network using SSDP/UPnP, DIAL and mDNS. |
+| 📡 **Automatic discovery** | Finds TVs on the same Wi‑Fi network using SSDP/UPnP, DIAL and mDNS, plus a direct subnet sweep for routers that block multicast. TVs can also be added by IP address. |
 | 📺 **Multi-brand** | Samsung (Tizen), LG (webOS), Sony (Bravia), Roku, and Android TV / Google TV (Sony, TCL, Hisense, Philips, Xiaomi, Chromecast with Google TV…). |
 | 🎮 **Full remote** | Circular D‑pad, volume and channel rockers, media controls. Turn the crown/bezel to change volume. |
 | 🔐 **One-time pairing** | TV-side approval (Samsung, LG) or on-screen PIN (Android TV); credentials are remembered. |
@@ -67,6 +67,8 @@ Requirements: Android Studio (latest), JDK 17+, a Wear OS 3+ watch (API 30+) on 
    ```
    The file is git-ignored. Without a key, TuControl still works with the offline command parser.
 3. Run the `app` configuration on a Wear OS device or emulator.
+
+> **Emulator:** the Wear OS emulator has no Wi‑Fi and sits behind NAT, so multicast discovery cannot see the LAN. Debug builds fall back to the emulator's network and sweep the development machine's subnet instead, so real TVs on your network still show up.
 
 ```bash
 ./gradlew :app:assembleDebug        # build

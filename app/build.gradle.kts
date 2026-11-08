@@ -1,3 +1,6 @@
+import com.android.build.api.variant.BuildConfigField
+import java.net.Inet4Address
+import java.net.NetworkInterface
 import java.util.Properties
 
 plugins {
@@ -26,6 +29,7 @@ android {
             ?: System.getenv("ANTHROPIC_API_KEY")
             ?: ""
         buildConfigField("String", "ANTHROPIC_API_KEY", "\"$apiKey\"")
+        buildConfigField("String", "DEV_LAN_SUBNETS", "\"\"")
     }
 
     buildTypes {
@@ -58,6 +62,33 @@ android {
                 "/META-INF/*.kotlin_module",
             )
         }
+    }
+}
+
+/**
+ * The development machine's private IPv4 /24 prefixes (e.g. "192.168.1"). The Wear OS
+ * emulator sits behind NAT and cannot see LAN multicast, but it can reach these hosts,
+ * so debug builds sweep them to find real TVs. Re-evaluated on every build.
+ */
+abstract class HostLanSubnets : ValueSource<String, ValueSourceParameters.None> {
+    override fun obtain(): String = NetworkInterface.getNetworkInterfaces().toList()
+        .filter { it.isUp && !it.isLoopback && !it.isVirtual && !it.isPointToPoint }
+        .flatMap { it.inetAddresses.toList() }
+        .filterIsInstance<Inet4Address>()
+        .filter { it.isSiteLocalAddress }
+        .mapNotNull { it.hostAddress?.substringBeforeLast('.') }
+        .distinct()
+        .joinToString(",")
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        variant.buildConfigFields?.put(
+            "DEV_LAN_SUBNETS",
+            providers.of(HostLanSubnets::class) {}.map { subnets ->
+                BuildConfigField("String", "\"$subnets\"", "Host LAN subnets reachable from the emulator")
+            },
+        )
     }
 }
 

@@ -9,6 +9,8 @@ import com.tucontrol.data.ai.LocalCommandInterpreter
 import com.tucontrol.data.discovery.AndroidTvMdnsDiscovery
 import com.tucontrol.data.discovery.CompositeTvDiscovery
 import com.tucontrol.data.discovery.SsdpTvDiscovery
+import com.tucontrol.data.discovery.SubnetScanDiscovery
+import com.tucontrol.data.discovery.TvProber
 import com.tucontrol.data.network.LocalHttpClients
 import com.tucontrol.data.network.WifiNetworkProvider
 import com.tucontrol.data.session.RemoteSession
@@ -33,7 +35,8 @@ class AppContainer(context: Context) {
     private val appContext = context.applicationContext
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val httpClients = LocalHttpClients()
-    val wifi = WifiNetworkProvider(appContext)
+    val wifi = WifiNetworkProvider(appContext, allowLanFallback = BuildConfig.DEBUG)
+    val prober = TvProber(httpClients.plain)
 
     val deviceRepository: DeviceRepository = DataStoreDeviceRepository(appContext.dataStore)
     val settingsRepository: SettingsRepository = DataStoreSettingsRepository(appContext.dataStore)
@@ -42,6 +45,12 @@ class AppContainer(context: Context) {
         listOf(
             SsdpTvDiscovery(appContext, wifi, httpClients.plain),
             AndroidTvMdnsDiscovery(appContext, wifi),
+            SubnetScanDiscovery(
+                context = appContext,
+                wifi = wifi,
+                prober = prober,
+                extraSubnets = BuildConfig.DEV_LAN_SUBNETS.split(',').filter { it.isNotBlank() },
+            ),
         ),
     )
 
