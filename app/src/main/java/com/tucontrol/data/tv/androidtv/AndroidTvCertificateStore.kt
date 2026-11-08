@@ -46,12 +46,18 @@ class AndroidTvCertificateStore {
 
     private fun ensureKey() {
         if (keyStore.containsAlias(ALIAS)) return
+        LEGACY_ALIASES.filter(keyStore::containsAlias).forEach(keyStore::deleteEntry)
         val validFrom = Calendar.getInstance()
         val validTo = Calendar.getInstance().apply { add(Calendar.YEAR, CERTIFICATE_YEARS) }
-        val spec = KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_SIGN)
+        // The TLS stack (BoringSSL) pads handshake signatures itself and asks the Keystore
+        // for a raw RSA private-key operation, which requires DECRYPT with no padding.
+        val purposes = KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_DECRYPT
+        val spec = KeyGenParameterSpec.Builder(ALIAS, purposes)
             .setKeySize(KEY_SIZE)
             .setDigests(KeyProperties.DIGEST_NONE, KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
             .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1, KeyProperties.SIGNATURE_PADDING_RSA_PSS)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE, KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1)
+            .setRandomizedEncryptionRequired(false)
             .setCertificateSubject(X500Principal("CN=TuControl"))
             .setCertificateSerialNumber(BigInteger.valueOf(System.currentTimeMillis()))
             .setCertificateNotBefore(validFrom.time)
@@ -75,7 +81,10 @@ class AndroidTvCertificateStore {
 
     private companion object {
         const val ANDROID_KEYSTORE = "AndroidKeyStore"
-        const val ALIAS = "tucontrol_androidtv_remote"
+        const val ALIAS = "tucontrol_androidtv_remote_v2"
+
+        /** Keys generated without raw RSA support; they cannot complete a TLS handshake. */
+        val LEGACY_ALIASES = listOf("tucontrol_androidtv_remote")
         const val KEY_SIZE = 2048
         const val CERTIFICATE_YEARS = 10
     }
