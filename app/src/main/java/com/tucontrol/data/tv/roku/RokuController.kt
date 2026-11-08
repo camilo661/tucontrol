@@ -8,6 +8,7 @@ import com.tucontrol.domain.model.StreamingApp
 import com.tucontrol.domain.model.TvDevice
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -38,6 +39,23 @@ class RokuController(
         ensureConnected()
         val channelId = APP_IDS[app] ?: return
         post("/launch/$channelId")
+    }
+
+    override fun canLaunch(app: StreamingApp) = app in APP_IDS
+
+    /** Roku's universal search; with a known app it jumps straight into that app's results. */
+    override suspend fun search(query: String, app: StreamingApp?) {
+        ensureConnected()
+        val url = (baseUrl + "/search/browse").toHttpUrl().newBuilder()
+            .addQueryParameter("keyword", query)
+            .apply {
+                app?.let(APP_IDS::get)?.let { providerId ->
+                    addQueryParameter("provider-id", providerId)
+                    addQueryParameter("launch", "true")
+                }
+            }
+            .build()
+        execute(Request.Builder().url(url).post(ByteArray(0).toRequestBody()).build())
     }
 
     override suspend fun disconnect() {
@@ -82,6 +100,7 @@ class RokuController(
             RemoteKey.PAUSE to "Play",
             RemoteKey.REWIND to "Rev",
             RemoteKey.FAST_FORWARD to "Fwd",
+            RemoteKey.INFO to "Info",
         )
 
         val APP_IDS = mapOf(
@@ -91,6 +110,11 @@ class RokuController(
             StreamingApp.DISNEY_PLUS to "291097",
             StreamingApp.SPOTIFY to "22297",
             StreamingApp.MAX to "61322",
+            StreamingApp.APPLE_TV to "551012",
+            StreamingApp.PARAMOUNT_PLUS to "31440",
+            StreamingApp.CRUNCHYROLL to "2595",
+            StreamingApp.PLUTO_TV to "74519",
+            StreamingApp.PLEX to "13535",
         )
     }
 }

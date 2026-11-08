@@ -87,6 +87,8 @@ class LgWebOsController(
         }
     }
 
+    override fun canLaunch(app: StreamingApp) = app in APP_IDS
+
     override suspend fun launch(app: StreamingApp) {
         ensureConnected()
         val appId = APP_IDS[app] ?: return
@@ -226,6 +228,10 @@ class LgWebOsController(
             RemoteKey.HOME to "HOME",
             RemoteKey.MENU to "MENU",
             RemoteKey.INPUT to "INPUT_HUB",
+            RemoteKey.INFO to "INFO",
+            *RemoteKey.entries.filter { it.name.startsWith("NUM_") }
+                .map { it to it.name.removePrefix("NUM_") }
+                .toTypedArray(),
         )
 
         val APP_IDS = mapOf(

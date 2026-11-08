@@ -6,6 +6,7 @@ import com.tucontrol.domain.model.CommandPlan
 import com.tucontrol.domain.model.ConnectionError
 import com.tucontrol.domain.model.ConnectionState
 import com.tucontrol.domain.model.RemoteKey
+import com.tucontrol.domain.model.StreamingApp
 import com.tucontrol.domain.model.TvAction
 import com.tucontrol.domain.model.TvDevice
 import com.tucontrol.domain.repository.DeviceRepository
@@ -133,6 +134,18 @@ class RemoteSession(
     suspend fun press(key: RemoteKey): Boolean = execute(CommandPlan(listOf(TvAction.Press(key))))
 
     /** Runs every action in order. Returns `false` when there is no usable connection. */
+    /** Apps in [plan] that the connected TV platform cannot open. */
+    fun unsupportedApps(plan: CommandPlan): List<StreamingApp> {
+        val active = controller.value ?: return emptyList()
+        return plan.actions.mapNotNull { action ->
+            when (action) {
+                is TvAction.LaunchApp -> action.app
+                is TvAction.Search -> action.app
+                else -> null
+            }
+        }.filterNot(active::canLaunch).distinct()
+    }
+
     suspend fun execute(plan: CommandPlan): Boolean = commandLock.withLock {
         val active = controller.value ?: return false
         if (active.state.value != ConnectionState.Connected) {
@@ -142,13 +155,22 @@ class RemoteSession(
         }
         try {
             plan.actions.forEachIndexed { step, action ->
-                if (step > 0) delay(STEP_DELAY_MS)
+                if (step > 0) {
+                    // Apps need a moment to open before they react to further keys.
+                    val opensApp = plan.actions[step - 1].let { it is TvAction.LaunchApp || it is TvAction.Search }
+                    delay(if (opensApp) APP_OPEN_DELAY_MS else STEP_DELAY_MS)
+                }
                 when (action) {
                     is TvAction.Press -> repeat(action.times) { index ->
                         if (index > 0) delay(REPEAT_DELAY_MS)
                         active.press(action.key)
                     }
                     is TvAction.LaunchApp -> active.launch(action.app)
+                    is TvAction.TuneChannel -> RemoteKey.digitsOf(action.number).forEach { digit ->
+                        active.press(digit)
+                        delay(REPEAT_DELAY_MS)
+                    }
+                    is TvAction.Search -> active.search(action.query, action.app)
                 }
             }
             true
@@ -162,5 +184,6 @@ class RemoteSession(
     private companion object {
         const val REPEAT_DELAY_MS = 120L
         const val STEP_DELAY_MS = 400L
+        const val APP_OPEN_DELAY_MS = 3_000L
     }
 }

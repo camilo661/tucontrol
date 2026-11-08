@@ -23,4 +23,28 @@ enum class RemoteKey {
     STOP,
     REWIND,
     FAST_FORWARD,
+    NEXT,
+    PREVIOUS,
+    INFO,
+    GUIDE,
+    CAPTIONS,
+    SETTINGS,
+    NUM_0,
+    NUM_1,
+    NUM_2,
+    NUM_3,
+    NUM_4,
+    NUM_5,
+    NUM_6,
+    NUM_7,
+    NUM_8,
+    NUM_9,
+    ;
+
+    companion object {
+        /** The number keys for each digit of [number], e.g. 105 → [NUM_1, NUM_0, NUM_5]. */
+        fun digitsOf(number: Int): List<RemoteKey> = number.toString().map { NUMBERS[it.digitToInt()] }
+
+        private val NUMBERS = listOf(NUM_0, NUM_1, NUM_2, NUM_3, NUM_4, NUM_5, NUM_6, NUM_7, NUM_8, NUM_9)
+    }
 }

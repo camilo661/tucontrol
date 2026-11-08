@@ -67,11 +67,13 @@ class ClaudeCommandInterpreter(apiKey: String) : CommandInterpreter {
 
     private fun toPlan(result: ClaudePlan): CommandPlan = CommandPlan(
         result.actions.mapNotNull { action ->
+            val app = action.app.takeIf { it != NONE }?.let { runCatching { StreamingApp.valueOf(it) }.getOrNull() }
             when (action.type) {
                 "press" -> runCatching { RemoteKey.valueOf(action.key) }.getOrNull()
                     ?.let { TvAction.Press(it, action.times.coerceIn(1, TvAction.MAX_REPEAT)) }
-                "launch" -> runCatching { StreamingApp.valueOf(action.app) }.getOrNull()
-                    ?.let { TvAction.LaunchApp(it) }
+                "launch" -> app?.let { TvAction.LaunchApp(it) }
+                "channel" -> action.number.takeIf { it in 1..TvAction.MAX_CHANNEL }?.let { TvAction.TuneChannel(it) }
+                "search" -> action.query.trim().takeIf { it.isNotEmpty() }?.let { TvAction.Search(it, app) }
                 else -> null
             }
         },
@@ -86,6 +88,8 @@ class ClaudeCommandInterpreter(apiKey: String) : CommandInterpreter {
         val key: String = NONE,
         val times: Int = 1,
         val app: String = NONE,
+        val number: Int = 0,
+        val query: String = "",
     )
 
     private companion object {
@@ -96,18 +100,30 @@ class ClaudeCommandInterpreter(apiKey: String) : CommandInterpreter {
         const val NONE = "NONE"
 
         val SYSTEM_PROMPT = """
-            You turn spoken TV remote commands into actions. The user speaks Spanish (any
-            regional variant) to a smartwatch that controls their television.
+            You are the voice assistant of a smartwatch TV remote. The user speaks Spanish (any
+            regional variant, often casual or with speech-recognition mistakes) and expects the
+            TV to react immediately, exactly as if they had used the remote themselves.
 
-            Return the ordered list of actions that fulfils the request:
-            - "press": press a remote key `times` times (1-${TvAction.MAX_REPEAT}). Set app to "NONE".
-            - "launch": open a streaming app. Set key to "NONE" and times to 1.
+            Return the ordered list of actions that fulfils the request. Every action has all
+            fields; fill the ones it does not use with "NONE", 1, 0 or "" respectively.
+            - "press": press `key` `times` times (1-${TvAction.MAX_REPEAT}).
+            - "launch": open the streaming `app`.
+            - "channel": tune channel `number` (e.g. "pon el canal 7", "ve al 105").
+            - "search": search for `query` (titles, artists, topics), inside `app` when the user
+              names one or the content clearly belongs to one; otherwise app "NONE".
 
             Guidelines:
-            - Volume changes without an explicit amount mean 3 presses; "un poco" means 2; "mucho" means 6.
+            - Infer intent: "no oigo nada" → volume up; "está muy alto" → volume down; "quiero ver
+              una peli de Marvel en Disney" → search "Marvel" in DISNEY_PLUS; "pon música de Bad
+              Bunny" → search "Bad Bunny" in SPOTIFY if music, otherwise YOUTUBE.
+            - Volume changes without an explicit amount mean 3 presses; "un poco" 2; "mucho" 6.
             - "apaga" / "enciende" / "prende" the TV all map to POWER.
-            - Navigation words (arriba, abajo, izquierda, derecha, aceptar, atrás) map to the D-pad keys.
-            - If the phrase is not a TV command, return an empty actions list.
+            - "siguiente capítulo/canción" → NEXT; "anterior" media → PREVIOUS; "subtítulos" →
+              CAPTIONS; "información" → INFO; "guía" → GUIDE; "ajustes/configuración" → SETTINGS.
+            - Navigation words (arriba, abajo, izquierda, derecha, aceptar, atrás) map to the
+              D-pad keys; "baja tres" while navigating means DOWN 3 times.
+            - Fix obvious recognition errors ("net flix" → Netflix, "yutub" → YouTube).
+            - If the phrase is not a TV request, return an empty actions list.
         """.trimIndent()
 
         val RESPONSE_SCHEMA: BetaJsonOutputFormat.Schema = BetaJsonOutputFormat.Schema.builder()
@@ -123,9 +139,12 @@ class ClaudeCommandInterpreter(apiKey: String) : CommandInterpreter {
                             "items" to mapOf(
                                 "type" to "object",
                                 "additionalProperties" to false,
-                                "required" to listOf("type", "key", "times", "app"),
+                                "required" to listOf("type", "key", "times", "app", "number", "query"),
                                 "properties" to mapOf(
-                                    "type" to mapOf("type" to "string", "enum" to listOf("press", "launch")),
+                                    "type" to mapOf(
+                                        "type" to "string",
+                                        "enum" to listOf("press", "launch", "channel", "search"),
+                                    ),
                                     "key" to mapOf(
                                         "type" to "string",
                                         "enum" to RemoteKey.entries.map { it.name } + NONE,
@@ -135,6 +154,8 @@ class ClaudeCommandInterpreter(apiKey: String) : CommandInterpreter {
                                         "type" to "string",
                                         "enum" to StreamingApp.entries.map { it.name } + NONE,
                                     ),
+                                    "number" to mapOf("type" to "integer"),
+                                    "query" to mapOf("type" to "string"),
                                 ),
                             ),
                         ),

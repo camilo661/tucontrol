@@ -30,10 +30,17 @@ class LocalCommandInterpreter : CommandInterpreter {
 
         var unmatched = 0
         val actions = clauses.flatMap { clause ->
-            parseClause(clause).also { if (it.isEmpty()) unmatched++ }
+            parseClause(clause).also { if (it.isEmpty() || it.isOpenEndedSearch()) unmatched++ }
         }
         return Result(CommandPlan(actions), unmatched)
     }
+
+    /**
+     * A search with no app ("busca la película de anoche") is a guess offline: it runs when no
+     * AI is available, but is reported as not fully understood so the AI gets the first try.
+     */
+    private fun List<TvAction>.isOpenEndedSearch(): Boolean =
+        singleOrNull().let { it is TvAction.Search && it.app == null }
 
     private fun parseClause(clause: String): List<TvAction> {
         val words = clause.split(' ').filter { it.isNotEmpty() }.toSet()
@@ -41,17 +48,35 @@ class LocalCommandInterpreter : CommandInterpreter {
             if (' ' in term) term in clause else term in words
         }
         val amount = extractNumber(words)
+        val app = APP_ALIASES.entries.firstOrNull { (alias, _) -> has(alias) }?.value
 
-        APP_ALIASES.entries.firstOrNull { (alias, _) -> has(alias) }?.let { (_, app) ->
-            return listOf(TvAction.LaunchApp(app))
+        // "busca stranger things en netflix" → search, scoped to the app when one is named.
+        SEARCH_PREFIX.find(clause)?.let { match ->
+            val query = clause.substring(match.range.last + 1)
+                .replace(APP_SUFFIX, "")
+                .trim()
+            return if (query.isNotEmpty()) listOf(TvAction.Search(query, app)) else emptyList()
         }
+
+        app?.let { return listOf(TvAction.LaunchApp(it)) }
 
         val isVolume = has("volumen", "sonido", "audio")
         val isChannel = has("canal", "canales")
         val increase = has("sube", "subir", "subele", "aumenta", "aumentar", "mas", "siguiente", "arriba")
         val decrease = has("baja", "bajar", "bajale", "disminuye", "reduce", "menos", "anterior", "abajo")
 
+        // "pon el canal 7" tunes directly; "sube dos canales" is handled below as presses.
+        if (has("canal") && amount != null && !increase && !decrease) {
+            return listOf(TvAction.TuneChannel(amount.coerceIn(1, TvAction.MAX_CHANNEL)))
+        }
+
         val key: RemoteKey? = when {
+            has("siguiente capitulo", "siguiente episodio", "siguiente cancion", "proximo capitulo", "proxima cancion") -> RemoteKey.NEXT
+            has("capitulo anterior", "episodio anterior", "cancion anterior") -> RemoteKey.PREVIOUS
+            has("subtitulos", "subtitulo") -> RemoteKey.CAPTIONS
+            has("informacion", "info") -> RemoteKey.INFO
+            has("guia", "programacion") -> RemoteKey.GUIDE
+            has("ajustes", "configuracion") -> RemoteKey.SETTINGS
             has("silencio", "silencia", "silenciar", "mute", "quita el sonido", "apaga el sonido", "activa el sonido") -> RemoteKey.MUTE
             isVolume && increase -> RemoteKey.VOLUME_UP
             isVolume && decrease -> RemoteKey.VOLUME_DOWN
@@ -117,7 +142,16 @@ class LocalCommandInterpreter : CommandInterpreter {
             "spotify" to StreamingApp.SPOTIFY,
             "hbo" to StreamingApp.MAX,
             "hbo max" to StreamingApp.MAX,
+            "apple tv" to StreamingApp.APPLE_TV,
+            "paramount" to StreamingApp.PARAMOUNT_PLUS,
+            "crunchyroll" to StreamingApp.CRUNCHYROLL,
+            "pluto" to StreamingApp.PLUTO_TV,
+            "plex" to StreamingApp.PLEX,
+            "vix" to StreamingApp.VIX,
         )
+
+        val SEARCH_PREFIX = Regex("^(?:(?:por favor|quiero|puedes)\\s+)?(?:busca|buscar|buscame|encuentra)\\b")
+        val APP_SUFFIX = Regex("\\s+(?:en|por)\\s+(?:netflix|youtube|you tube|prime video|amazon|prime|disney|spotify|hbo max|hbo|max|apple tv|paramount|crunchyroll|pluto|plex|vix)\\b.*$")
 
         val NUMBER_WORDS = mapOf(
             "un" to 1, "uno" to 1, "una" to 1, "dos" to 2, "tres" to 3, "cuatro" to 4,

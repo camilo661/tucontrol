@@ -8,4 +8,10 @@ enum class StreamingApp(val displayName: String) {
     DISNEY_PLUS("Disney+"),
     SPOTIFY("Spotify"),
     MAX("Max"),
+    APPLE_TV("Apple TV"),
+    PARAMOUNT_PLUS("Paramount+"),
+    CRUNCHYROLL("Crunchyroll"),
+    PLUTO_TV("Pluto TV"),
+    PLEX("Plex"),
+    VIX("ViX"),
 }

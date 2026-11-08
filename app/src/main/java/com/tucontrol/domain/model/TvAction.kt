@@ -10,8 +10,23 @@ sealed interface TvAction {
 
     data class LaunchApp(val app: StreamingApp) : TvAction
 
+    /** Tunes a channel by number ("pon el canal 7"), typed on the number keys. */
+    data class TuneChannel(val number: Int) : TvAction {
+        init {
+            require(number in 1..MAX_CHANNEL) { "channel must be within 1..$MAX_CHANNEL" }
+        }
+    }
+
+    /** Searches for content, inside [app] when given ("busca Stranger Things en Netflix"). */
+    data class Search(val query: String, val app: StreamingApp? = null) : TvAction {
+        init {
+            require(query.isNotBlank()) { "query must not be blank" }
+        }
+    }
+
     companion object {
         const val MAX_REPEAT = 30
+        const val MAX_CHANNEL = 9_999
     }
 }
 

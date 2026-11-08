@@ -56,7 +56,7 @@ class HybridCommandInterpreterTest {
         val ai = CountingInterpreter { error("network down") }
         val hybrid = HybridCommandInterpreter(LocalCommandInterpreter(), ai, FakeSettings(aiEnabled = true))
 
-        val plan = hybrid.interpret("sube el volumen y busca algo bueno")
+        val plan = hybrid.interpret("sube el volumen y cuéntame un chiste")
 
         assertEquals(listOf(TvAction.Press(RemoteKey.VOLUME_UP, 3)), plan.actions)
     }

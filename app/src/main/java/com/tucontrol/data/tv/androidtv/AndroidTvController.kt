@@ -20,6 +20,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.io.IOException
 import java.net.InetSocketAddress
+import java.net.URLEncoder
 import java.security.interfaces.RSAPublicKey
 import javax.net.ssl.SSLSocket
 
@@ -98,7 +99,23 @@ class AndroidTvController(
 
     override suspend fun launch(app: StreamingApp) {
         ensureConnected()
-        val link = APP_LINKS[app] ?: return
+        openLink(APP_LINKS[app] ?: return)
+    }
+
+    override fun canLaunch(app: StreamingApp) = app in APP_LINKS
+
+    override suspend fun search(query: String, app: StreamingApp?) {
+        ensureConnected()
+        val encoded = URLEncoder.encode(query, Charsets.UTF_8.name())
+        when (app) {
+            null, StreamingApp.YOUTUBE -> openLink("https://www.youtube.com/results?search_query=$encoded")
+            StreamingApp.NETFLIX -> openLink("https://www.netflix.com/search?q=$encoded")
+            else -> launch(app)
+        }
+    }
+
+    /** Opens a deep link (or `market://launch?id=` package link) through the remote service. */
+    private suspend fun openLink(link: String) {
         sendRemote { message(REMOTE_APP_LINK_LAUNCH) { string(1, link) } }
     }
 
@@ -302,6 +319,16 @@ class AndroidTvController(
             RemoteKey.STOP to 86,
             RemoteKey.REWIND to 89,
             RemoteKey.FAST_FORWARD to 90,
+            RemoteKey.NEXT to 87,
+            RemoteKey.PREVIOUS to 88,
+            RemoteKey.INFO to 165,
+            RemoteKey.GUIDE to 172,
+            RemoteKey.CAPTIONS to 175,
+            RemoteKey.SETTINGS to 176,
+            // KEYCODE_0..KEYCODE_9 are consecutive (7..16).
+            *RemoteKey.entries.filter { it.name.startsWith("NUM_") }
+                .map { it to 7 + it.name.removePrefix("NUM_").toInt() }
+                .toTypedArray(),
         )
 
         val APP_LINKS = mapOf(
@@ -311,6 +338,12 @@ class AndroidTvController(
             StreamingApp.DISNEY_PLUS to "https://www.disneyplus.com",
             StreamingApp.SPOTIFY to "spotify://",
             StreamingApp.MAX to "https://play.max.com",
+            StreamingApp.APPLE_TV to "market://launch?id=com.apple.atve.androidtv.appletv",
+            StreamingApp.PARAMOUNT_PLUS to "market://launch?id=com.cbs.ott",
+            StreamingApp.CRUNCHYROLL to "market://launch?id=com.crunchyroll.crunchyroid",
+            StreamingApp.PLUTO_TV to "market://launch?id=tv.pluto.android",
+            StreamingApp.PLEX to "market://launch?id=com.plexapp.android",
+            StreamingApp.VIX to "market://launch?id=com.univision.prendetv",
         )
     }
 }

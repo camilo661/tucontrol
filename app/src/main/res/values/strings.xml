@@ -12,6 +12,12 @@
     <string name="home_voice_prompt">¿Qué quieres hacer?</string>
     <string name="home_not_understood">No entendí: “%1$s”</string>
     <string name="home_voice_unavailable">El reconocimiento de voz no está disponible</string>
+    <string name="home_preparing_voice">Preparando la voz en español… %1$d%%</string>
+    <string name="home_loading_voice">Cargando la voz…</string>
+    <string name="home_not_heard">No te escuché, toca e intenta de nuevo</string>
+    <string name="home_voice_download_failed">No se pudo descargar la voz. Revisa el Wi‑Fi</string>
+    <string name="home_mic_denied">Permite el micrófono para hablar</string>
+    <string name="home_app_unavailable">%1$s no está disponible en este TV</string>
     <string name="home_remote">Control</string>
     <string name="home_devices">Televisores</string>
     <string name="home_settings">Ajustes</string>
@@ -91,6 +97,16 @@
     <string name="action_rewind">Retroceder</string>
     <string name="action_fast_forward">Adelantar</string>
     <string name="action_open_app">Abriendo %1$s</string>
+    <string name="action_next">Siguiente</string>
+    <string name="action_previous">Anterior</string>
+    <string name="action_info">Información</string>
+    <string name="action_guide">Guía</string>
+    <string name="action_captions">Subtítulos</string>
+    <string name="action_settings">Ajustes del TV</string>
+    <string name="action_number">Número %1$s</string>
+    <string name="action_tune_channel">Canal %1$d</string>
+    <string name="action_search">Buscando “%1$s”</string>
+    <string name="action_search_in">Buscando “%1$s” en %2$s</string>
     <string name="action_failed">No se pudo enviar al TV</string>
 
     <!-- Remote extra keys -->

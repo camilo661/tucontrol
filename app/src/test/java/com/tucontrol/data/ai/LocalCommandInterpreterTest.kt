@@ -79,4 +79,32 @@ class LocalCommandInterpreterTest {
     fun `repeat count is clamped`() {
         assertEquals(listOf(TvAction.Press(RemoteKey.VOLUME_UP, TvAction.MAX_REPEAT)), actions("sube el volumen 99"))
     }
+
+    @Test
+    fun `a channel number tunes it directly`() {
+        assertEquals(listOf(TvAction.TuneChannel(7)), actions("Pon el canal 7"))
+        assertEquals(listOf(TvAction.TuneChannel(9)), actions("canal nueve"))
+        assertEquals(listOf(TvAction.Press(RemoteKey.CHANNEL_UP, 2)), actions("sube dos canales"))
+    }
+
+    @Test
+    fun `search is scoped to the named app`() {
+        assertEquals(
+            listOf(TvAction.Search("stranger things", StreamingApp.NETFLIX)),
+            actions("Busca Stranger Things en Netflix"),
+        )
+        assertEquals(listOf(TvAction.Search("recetas de pasta", null)), actions("busca recetas de pasta"))
+    }
+
+    @Test
+    fun `media and menu keys`() {
+        assertEquals(listOf(TvAction.Press(RemoteKey.NEXT)), actions("siguiente capítulo"))
+        assertEquals(listOf(TvAction.Press(RemoteKey.CAPTIONS)), actions("activa los subtítulos"))
+        assertEquals(listOf(TvAction.LaunchApp(StreamingApp.CRUNCHYROLL)), actions("abre crunchyroll"))
+    }
+
+    @Test
+    fun `number keys spell each digit`() {
+        assertEquals(listOf(RemoteKey.NUM_1, RemoteKey.NUM_0, RemoteKey.NUM_5), RemoteKey.digitsOf(105))
+    }
 }

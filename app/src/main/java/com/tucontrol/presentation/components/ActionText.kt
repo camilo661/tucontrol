@@ -16,6 +16,10 @@ object ActionText {
 
     private fun describe(resources: Resources, action: TvAction): String = when (action) {
         is TvAction.LaunchApp -> resources.getString(R.string.action_open_app, action.app.displayName)
+        is TvAction.TuneChannel -> resources.getString(R.string.action_tune_channel, action.number)
+        is TvAction.Search -> action.app
+            ?.let { resources.getString(R.string.action_search_in, action.query, it.displayName) }
+            ?: resources.getString(R.string.action_search, action.query)
         is TvAction.Press -> when (action.key) {
             RemoteKey.VOLUME_UP -> resources.getString(R.string.action_volume_up, action.times)
             RemoteKey.VOLUME_DOWN -> resources.getString(R.string.action_volume_down, action.times)
@@ -34,6 +38,15 @@ object ActionText {
             RemoteKey.STOP -> resources.getString(R.string.action_stop)
             RemoteKey.REWIND -> resources.getString(R.string.action_rewind)
             RemoteKey.FAST_FORWARD -> resources.getString(R.string.action_fast_forward)
+            RemoteKey.NEXT -> resources.getString(R.string.action_next)
+            RemoteKey.PREVIOUS -> resources.getString(R.string.action_previous)
+            RemoteKey.INFO -> resources.getString(R.string.action_info)
+            RemoteKey.GUIDE -> resources.getString(R.string.action_guide)
+            RemoteKey.CAPTIONS -> resources.getString(R.string.action_captions)
+            RemoteKey.SETTINGS -> resources.getString(R.string.action_settings)
+            RemoteKey.NUM_0, RemoteKey.NUM_1, RemoteKey.NUM_2, RemoteKey.NUM_3, RemoteKey.NUM_4,
+            RemoteKey.NUM_5, RemoteKey.NUM_6, RemoteKey.NUM_7, RemoteKey.NUM_8, RemoteKey.NUM_9,
+            -> resources.getString(R.string.action_number, action.key.name.removePrefix("NUM_"))
         }
     }
 

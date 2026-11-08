@@ -66,6 +66,8 @@ class SamsungTizenController(
         )
     }
 
+    override fun canLaunch(app: StreamingApp) = app in APP_IDS
+
     override suspend fun launch(app: StreamingApp) {
         ensureConnected()
         val appId = APP_IDS[app] ?: return
@@ -158,6 +160,12 @@ class SamsungTizenController(
             RemoteKey.STOP to "KEY_STOP",
             RemoteKey.REWIND to "KEY_REWIND",
             RemoteKey.FAST_FORWARD to "KEY_FF",
+            RemoteKey.INFO to "KEY_INFO",
+            RemoteKey.GUIDE to "KEY_GUIDE",
+            RemoteKey.CAPTIONS to "KEY_CAPTION",
+            *RemoteKey.entries.filter { it.name.startsWith("NUM_") }
+                .map { it to "KEY_" + it.name.removePrefix("NUM_") }
+                .toTypedArray(),
         )
 
         val APP_IDS = mapOf(

@@ -46,6 +46,8 @@ class SonyBraviaController(
         IRCC_CODES[key]?.let { sendIrcc(it) }
     }
 
+    override fun canLaunch(app: StreamingApp) = app in APP_CODES
+
     override suspend fun launch(app: StreamingApp) {
         ensureConnected()
         APP_CODES[app]?.let { sendIrcc(it) }
@@ -112,6 +114,17 @@ class SonyBraviaController(
             RemoteKey.STOP to "AAAAAgAAAJcAAAAYAw==",
             RemoteKey.REWIND to "AAAAAgAAAJcAAAAbAw==",
             RemoteKey.FAST_FORWARD to "AAAAAgAAAJcAAAAcAw==",
+            RemoteKey.INFO to "AAAAAQAAAAEAAAA6Aw==",
+            RemoteKey.NUM_0 to "AAAAAQAAAAEAAAAJAw==",
+            RemoteKey.NUM_1 to "AAAAAQAAAAEAAAAAAw==",
+            RemoteKey.NUM_2 to "AAAAAQAAAAEAAAABAw==",
+            RemoteKey.NUM_3 to "AAAAAQAAAAEAAAACAw==",
+            RemoteKey.NUM_4 to "AAAAAQAAAAEAAAADAw==",
+            RemoteKey.NUM_5 to "AAAAAQAAAAEAAAAEAw==",
+            RemoteKey.NUM_6 to "AAAAAQAAAAEAAAAFAw==",
+            RemoteKey.NUM_7 to "AAAAAQAAAAEAAAAGAw==",
+            RemoteKey.NUM_8 to "AAAAAQAAAAEAAAAHAw==",
+            RemoteKey.NUM_9 to "AAAAAQAAAAEAAAAIAw==",
         )
 
         val APP_CODES = mapOf(
