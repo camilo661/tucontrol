@@ -1,0 +1,166 @@
+package com.tucontrol.data.session
+
+import com.tucontrol.data.network.WifiNetworkProvider
+import com.tucontrol.data.tv.TvControllerFactory
+import com.tucontrol.domain.model.CommandPlan
+import com.tucontrol.domain.model.ConnectionError
+import com.tucontrol.domain.model.ConnectionState
+import com.tucontrol.domain.model.RemoteKey
+import com.tucontrol.domain.model.TvAction
+import com.tucontrol.domain.model.TvDevice
+import com.tucontrol.domain.repository.DeviceRepository
+import com.tucontrol.domain.repository.PinPairing
+import com.tucontrol.domain.repository.TvController
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+
+/**
+ * App-wide owner of the active TV connection. Screens observe [device] and [state];
+ * every command goes through here so key presses are serialized and paced.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+class RemoteSession(
+    private val factory: TvControllerFactory,
+    private val devices: DeviceRepository,
+    private val wifi: WifiNetworkProvider,
+    private val scope: CoroutineScope,
+) {
+    private val controller = MutableStateFlow<TvController?>(null)
+    private val sessionError = MutableStateFlow<ConnectionError?>(null)
+    private val commandLock = Mutex()
+
+    private val mutableDevice = MutableStateFlow<TvDevice?>(null)
+    val device: StateFlow<TvDevice?> = mutableDevice.asStateFlow()
+
+    val state: StateFlow<ConnectionState> = combine(
+        controller.flatMapLatest { it?.state ?: flowOf(ConnectionState.Disconnected) },
+        sessionError,
+    ) { controllerState, error ->
+        error?.let { ConnectionState.Failed(it) } ?: controllerState
+    }.stateIn(scope, SharingStarted.Eagerly, ConnectionState.Disconnected)
+
+    val pinPairing: PinPairing? get() = controller.value as? PinPairing
+
+    /** Starts connecting in the app scope so it survives screen changes. */
+    fun launchConnect(target: TvDevice) {
+        scope.launch { connect(target) }
+    }
+
+    /** Called when the app returns to the foreground: re-link the current or last TV. */
+    fun onForeground() {
+        scope.launch {
+            val current = mutableDevice.value
+            if (current != null) {
+                if (state.value !is ConnectionState.AwaitingPin) connect(current)
+            } else {
+                restore()
+            }
+        }
+    }
+
+    /** Called when the app leaves the foreground: free sockets and the Wi‑Fi radio. */
+    fun onBackground() {
+        scope.launch {
+            commandLock.withLock {
+                if (state.value !is ConnectionState.AwaitingPin) controller.value?.disconnect()
+                wifi.release()
+            }
+        }
+    }
+
+    /** Reconnects to the last used TV, if any. */
+    suspend fun restore() {
+        if (controller.value != null) return
+        val activeId = devices.activeDeviceId.first() ?: return
+        val saved = devices.savedDevices.first().firstOrNull { it.id == activeId } ?: return
+        connect(saved)
+    }
+
+    suspend fun connect(target: TvDevice) {
+        sessionError.value = null
+        val current = controller.value
+        if (current != null && current.device.id != target.id) current.disconnect()
+
+        mutableDevice.value = target
+        val next = current?.takeIf { it.device.id == target.id } ?: factory.create(target)
+        controller.value = next
+        if (next == null) {
+            sessionError.value = ConnectionError.UNSUPPORTED
+            return
+        }
+        if (wifi.acquire() == null) {
+            sessionError.value = ConnectionError.NO_WIFI
+            return
+        }
+
+        next.connect()
+        if (next.state.value == ConnectionState.Connected || next.state.value == ConnectionState.AwaitingPin) {
+            devices.save(target)
+            devices.setActive(target.id)
+        }
+    }
+
+    suspend fun retry() {
+        mutableDevice.value?.let { connect(it) }
+    }
+
+    suspend fun disconnect() {
+        controller.value?.disconnect()
+        controller.value = null
+        mutableDevice.value = null
+        sessionError.value = null
+    }
+
+    suspend fun forget(target: TvDevice) {
+        if (mutableDevice.value?.id == target.id) disconnect()
+        devices.forget(target.id)
+    }
+
+    suspend fun press(key: RemoteKey): Boolean = execute(CommandPlan(listOf(TvAction.Press(key))))
+
+    /** Runs every action in order. Returns `false` when there is no usable connection. */
+    suspend fun execute(plan: CommandPlan): Boolean = commandLock.withLock {
+        val active = controller.value ?: return false
+        if (active.state.value != ConnectionState.Connected) {
+            if (wifi.acquire() == null) return false
+            active.connect()
+            if (active.state.value != ConnectionState.Connected) return false
+        }
+        try {
+            plan.actions.forEachIndexed { step, action ->
+                if (step > 0) delay(STEP_DELAY_MS)
+                when (action) {
+                    is TvAction.Press -> repeat(action.times) { index ->
+                        if (index > 0) delay(REPEAT_DELAY_MS)
+                        active.press(action.key)
+                    }
+                    is TvAction.LaunchApp -> active.launch(action.app)
+                }
+            }
+            true
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private companion object {
+        const val REPEAT_DELAY_MS = 120L
+        const val STEP_DELAY_MS = 400L
+    }
+}
