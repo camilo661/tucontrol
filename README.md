@@ -8,6 +8,38 @@ The UI is in Spanish; source code, identifiers and comments are in English.
 
 ---
 
+## Descarga e instalación en el reloj
+
+**Descarga directa:** [TuControl.apk](https://github.com/camilo661/tucontrol/releases/latest/download/TuControl.apk) · [todas las versiones](https://github.com/camilo661/tucontrol/releases)
+
+Requisitos: reloj con **Wear OS 3 o superior** (Galaxy Watch 4 o posterior, Pixel Watch, TicWatch…) y reloj y TV en la **misma red Wi‑Fi**.
+
+### 1. Activa el modo desarrollador en el reloj
+1. En el reloj abre **Ajustes → Sistema → Información** (Samsung: **Ajustes → Información del reloj → Información de software**).
+2. Toca **Número de compilación** (Samsung: **Versión de software**) **7 veces**, hasta que diga que eres desarrollador.
+3. Vuelve a Ajustes, entra a **Opciones para desarrolladores** y activa **Depuración ADB** y **Depuración inalámbrica** (o "Depurar por Wi‑Fi").
+
+### 2. Instala desde una computadora (Windows, Mac o Linux)
+1. Descarga [Android SDK Platform‑Tools](https://developer.android.com/tools/releases/platform-tools) y descomprímelo.
+2. Descarga **TuControl.apk** con el enlace de arriba y ponlo en la misma carpeta.
+3. En el reloj, entra a **Depuración inalámbrica → Vincular nuevo dispositivo**: verás una IP, un puerto y un código.
+4. En la computadora abre una terminal en esa carpeta y escribe (con los datos de tu reloj):
+   ```bash
+   adb pair 192.168.1.50:37123        # IP:puerto de "Vincular"; escribe el código cuando lo pida
+   adb connect 192.168.1.50:41234     # IP:puerto que muestra "Depuración inalámbrica"
+   adb install TuControl.apk
+   ```
+5. Acepta en el reloj si pregunta **"¿Permitir depuración?"**. Al terminar verás **Success** y TuControl aparecerá en la lista de apps.
+
+> **Sin computadora:** desde un teléfono Android puedes usar la app **Wear Installer 2** (Play Store): descarga el APK en el teléfono, escribe la IP del reloj y pulsa instalar. El reloj también necesita la depuración inalámbrica activada.
+
+### 3. Primer uso
+1. Abre **TuControl**: verás la guía de bienvenida.
+2. Entra a **Televisores**, elige tu TV y vincúlala (acepta en el TV o escribe el código que aparece).
+3. Toca el micrófono y habla. En **Android TV** activa también **Depuración por USB** en el televisor (Ajustes → Sistema → Opciones para desarrolladores) y acepta el aviso la primera vez: así la IA puede ver la pantalla y hacer cualquier petición.
+
+Cuando termines puedes desactivar la depuración del reloj; la app sigue instalada.
+
 ## Features
 
 | | |
