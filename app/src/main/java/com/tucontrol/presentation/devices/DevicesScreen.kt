@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.WifiFind
 import androidx.compose.material.icons.rounded.WifiOff
@@ -40,6 +41,7 @@ import androidx.wear.compose.material3.Text
 import com.tucontrol.R
 import com.tucontrol.domain.model.ConnectionState
 import com.tucontrol.domain.model.TvDevice
+import com.tucontrol.presentation.common.rememberTextInputLauncher
 import com.tucontrol.presentation.components.ActionText
 import com.tucontrol.presentation.components.StatusDot
 import com.tucontrol.presentation.components.icon
@@ -52,6 +54,9 @@ fun DevicesScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberTransformingLazyColumnState()
     var pendingForget by remember { mutableStateOf<TvDevice?>(null) }
+    val enterAddress = rememberTextInputLauncher(stringResource(R.string.devices_manual_label)) { input ->
+        viewModel.addByAddress(input, onConnecting = onDeviceSelected)
+    }
 
     ScreenScaffold(scrollState = listState) { contentPadding ->
         TransformingLazyColumn(state = listState, contentPadding = contentPadding) {
@@ -107,6 +112,38 @@ fun DevicesScreen(
                         modifier = Modifier.fillMaxWidth(),
                         icon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
                         label = { Text(stringResource(R.string.devices_rescan)) },
+                    )
+                }
+            }
+
+            item {
+                Button(
+                    onClick = enterAddress,
+                    enabled = !state.probing,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(),
+                    border = ButtonDefaults.outlinedButtonBorder(enabled = !state.probing),
+                    icon = { Icon(Icons.Rounded.Add, contentDescription = null) },
+                    label = { Text(stringResource(R.string.devices_manual_add)) },
+                    secondaryLabel = {
+                        Text(
+                            text = stringResource(
+                                if (state.probing) R.string.devices_manual_probing else R.string.devices_manual_hint,
+                            ),
+                            maxLines = 2,
+                        )
+                    },
+                )
+            }
+
+            state.manualError?.let { error ->
+                item {
+                    Text(
+                        text = stringResource(error),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                     )
                 }
             }

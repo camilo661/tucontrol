@@ -34,6 +34,12 @@
     <string name="devices_connected">Conectado</string>
     <string name="devices_forget">Olvidar</string>
     <string name="devices_forget_question">¿Olvidar este televisor?</string>
+    <string name="devices_manual_add">Agregar por IP</string>
+    <string name="devices_manual_label">IP del TV · ej. 192.168.1.20</string>
+    <string name="devices_manual_probing">Buscando el TV…</string>
+    <string name="devices_manual_invalid">Esa dirección IP no es válida</string>
+    <string name="devices_manual_not_found">No hay un TV compatible en esa IP</string>
+    <string name="devices_manual_hint">La IP está en el menú de red del TV</string>
     <string name="devices_long_press_hint">Mantén presionado para olvidar</string>
 
     <!-- Pairing -->
