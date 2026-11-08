@@ -7,6 +7,7 @@ import com.tucontrol.data.tv.TvRejectedException
 import com.tucontrol.domain.model.ConnectionState
 import com.tucontrol.domain.model.InstalledApp
 import com.tucontrol.domain.model.RemoteKey
+import com.tucontrol.domain.model.SettingsSection
 import com.tucontrol.domain.model.StreamingApp
 import com.tucontrol.domain.model.TvDevice
 import com.tucontrol.domain.repository.DeviceRepository
@@ -16,11 +17,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.URLEncoder
@@ -38,6 +43,7 @@ class AndroidTvController(
     override val device: TvDevice,
     private val devices: DeviceRepository,
     private val certificates: AndroidTvCertificateStore,
+    private val phrases: AssistantPhrases,
 ) : BaseTvController(), PinPairing {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -48,7 +54,8 @@ class AndroidTvController(
     private var reader: Job? = null
     /** A name the user asked for that is not known yet; given to the next newly opened app. */
     @Volatile private var nameForNextApp: String? = null
-    @Volatile private var foregroundApp: String? = null
+    private val foreground = MutableStateFlow<String?>(null)
+    @Volatile private var isGoogleTv = false
     private var voiceBegin: CompletableDeferred<Long>? = null
     private val voiceLock = Mutex()
 
@@ -152,6 +159,39 @@ class AndroidTvController(
         }
     }
 
+    /**
+     * This remote protocol has no settings deep links and many TVs ignore the settings key, so
+     * TuControl does what a person does: asks the TV's assistant to open the settings, waits for
+     * the TV to confirm it, then walks the menu with the D-pad to the requested section.
+     */
+    override suspend fun openSettings(section: SettingsSection) {
+        ensureConnected()
+        // Start from the home screen: a known state, and it reveals a Google TV launcher.
+        pressKey(KEY_CODES.getValue(RemoteKey.HOME))
+        withTimeoutOrNull(MENU_DELAY_MS) { foreground.first { it != SETTINGS_PACKAGE } }
+        delay(MENU_DELAY_MS)
+        val opened = phrases.openSettings.any { phrase ->
+            sendVoice(phrase)
+            withTimeoutOrNull(SETTINGS_OPEN_TIMEOUT_MS) { foreground.first { it == SETTINGS_PACKAGE } } != null
+        }
+        if (!opened) throw IOException("The TV did not open its settings")
+        delay(MENU_DELAY_MS)
+
+        val path = (if (isGoogleTv) GOOGLE_TV_SETTINGS else ANDROID_TV_SETTINGS)[section].orEmpty()
+        if (path.isEmpty()) return
+        repeat(MENU_TOP_PRESSES) { pressKey(KEY_CODES.getValue(RemoteKey.UP)) }
+        for (downs in path) {
+            repeat(downs) { pressKey(KEY_CODES.getValue(RemoteKey.DOWN)) }
+            pressKey(KEY_CODES.getValue(RemoteKey.OK))
+            delay(MENU_DELAY_MS)
+        }
+    }
+
+    private suspend fun pressKey(code: Int) {
+        sendRemote { message(REMOTE_KEY_INJECT) { int(1, code); int(2, DIRECTION_SHORT) } }
+        delay(KEY_DELAY_MS)
+    }
+
     override suspend fun installedApps(): List<InstalledApp> {
         val learned = devices.learnedApps(device.id)
         return learned + KNOWN_APPS.filterNot { known -> learned.any { it.id == known.id } }
@@ -169,8 +209,9 @@ class AndroidTvController(
     }
 
     private suspend fun onForegroundApp(packageName: String) {
-        if (packageName == foregroundApp) return
-        foregroundApp = packageName
+        if (packageName == foreground.value) return
+        foreground.value = packageName
+        if (packageName == GOOGLE_TV_LAUNCHER) isGoogleTv = true
         if (BuildConfig.DEBUG) Log.d(TAG, "Foreground app on ${device.name}: $packageName")
         if (packageName in SYSTEM_PACKAGES) return
         val known = installedApps().firstOrNull { it.id == packageName }
@@ -381,6 +422,37 @@ class AndroidTvController(
         const val REMOTE_VOICE_END = 32
 
         const val KEYCODE_SEARCH = 84
+
+        const val SETTINGS_PACKAGE = "com.android.tv.settings"
+        const val GOOGLE_TV_LAUNCHER = "com.google.android.apps.tv.launcherx"
+        const val SETTINGS_OPEN_TIMEOUT_MS = 7_000L
+        const val MENU_DELAY_MS = 1_200L
+        const val KEY_DELAY_MS = 180L
+        const val MENU_TOP_PRESSES = 12
+
+        /**
+         * D-pad paths through the settings menu: for each level, how many rows down to move
+         * before OK. Google TV: Configurar Google TV · Canales y entradas · Pantalla y sonido ·
+         * Red e Internet · Cuentas y perfiles · Privacidad · Apps · Sistema · Accesibilidad ·
+         * Controles remotos y accesorios · Ayuda. Inside "Remotes & accessories", "Pair
+         * accessory" comes first; inside "Display & sound", "Picture" comes first.
+         */
+        val GOOGLE_TV_SETTINGS = mapOf(
+            SettingsSection.PICTURE to listOf(2, 0),
+            SettingsSection.SOUND to listOf(2),
+            SettingsSection.NETWORK to listOf(3),
+            SettingsSection.BLUETOOTH to listOf(9),
+            SettingsSection.BLUETOOTH_PAIRING to listOf(9, 0),
+        )
+
+        /** Classic Android TV: Red e Internet · Cuentas · Apps · Preferencias · Controles remotos y accesorios. */
+        val ANDROID_TV_SETTINGS = mapOf(
+            SettingsSection.PICTURE to listOf(3),
+            SettingsSection.SOUND to listOf(3),
+            SettingsSection.NETWORK to listOf(0),
+            SettingsSection.BLUETOOTH to listOf(4),
+            SettingsSection.BLUETOOTH_PAIRING to listOf(4, 0),
+        )
         const val VOICE_BEGIN_TIMEOUT_MS = 3_000L
         const val VOICE_CHUNK_BYTES = 20 * 1024
         const val VOICE_MIN_CHUNK_BYTES = 8 * 1024

@@ -39,6 +39,7 @@ object ActionText {
                 SettingsSection.SOUND -> R.string.action_settings_sound
                 SettingsSection.NETWORK -> R.string.action_settings_network
                 SettingsSection.BLUETOOTH -> R.string.action_settings_bluetooth
+                SettingsSection.BLUETOOTH_PAIRING -> R.string.action_settings_bluetooth_pairing
             },
         )
         is TvAction.TuneChannel -> resources.getString(R.string.action_tune_channel, action.number)

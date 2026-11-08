@@ -47,7 +47,7 @@ class LocalCommandInterpreter : CommandInterpreter {
     /** "abre ajustes y prende el bluetooth": opening a section already opens the settings. */
     private fun collapseSettings(actions: List<TvAction>): List<TvAction> =
         actions.filterIndexed { index, action ->
-            !(action == TvAction.Press(RemoteKey.SETTINGS) && actions.getOrNull(index + 1) is TvAction.OpenSettings)
+            !(action == TvAction.OpenSettings() && actions.getOrNull(index + 1) is TvAction.OpenSettings)
         }
 
     /** One clause of the request and the actions planned for it. */
@@ -108,7 +108,8 @@ class LocalCommandInterpreter : CommandInterpreter {
         val app = APP_ALIASES.entries.firstOrNull { (alias, _) -> has(alias) }?.value
 
         // "busca stranger things en netflix" → search, in the named app or the one already open.
-        SEARCH_PREFIX.find(clause)?.let { match ->
+        // "busca dispositivos bluetooth" is about pairing, not content.
+        SEARCH_PREFIX.find(clause)?.takeUnless { has(*BLUETOOTH_TERMS) }?.let { match ->
             val query = contentAfter(clause, match.range.last + 1)
             // Apps opened by name have no search TuControl can drive; don't fall back to YouTube.
             if (query.isEmpty() || (app == null && inOtherApp)) return emptyList()
@@ -157,7 +158,12 @@ class LocalCommandInterpreter : CommandInterpreter {
             )
         }
         SETTINGS_SECTIONS.firstOrNull { (terms, _) -> has(*terms) }?.let { (_, section) ->
-            return listOf(TvAction.OpenSettings(section))
+            // "conecta mis audífonos por bluetooth": open Bluetooth and start pairing.
+            val pairing = section == SettingsSection.BLUETOOTH && has(*PAIRING_VERBS)
+            return listOf(TvAction.OpenSettings(if (pairing) SettingsSection.BLUETOOTH_PAIRING else section))
+        }
+        if (has("ajustes", "ajuste", "configuracion", "configuraciones", "configurar", "opciones del tv", "opciones de la tele")) {
+            return listOf(TvAction.OpenSettings())
         }
 
         val key: RemoteKey? = when {
@@ -166,8 +172,6 @@ class LocalCommandInterpreter : CommandInterpreter {
             has("subtitulos", "subtitulo") -> RemoteKey.CAPTIONS
             has("informacion", "info") -> RemoteKey.INFO
             has("guia", "programacion") -> RemoteKey.GUIDE
-            has("ajustes", "ajuste", "configuracion", "configuraciones", "configurar", "opciones del tv", "opciones de la tele") ->
-                RemoteKey.SETTINGS
             has("busqueda", "buscador", "lupa") -> RemoteKey.SEARCH
             has("silencio", "silencia", "silenciar", "mute", "quita el sonido", "apaga el sonido", "activa el sonido") -> RemoteKey.MUTE
             isVolume && increase -> RemoteKey.VOLUME_UP
@@ -236,10 +240,17 @@ class LocalCommandInterpreter : CommandInterpreter {
             "la", "el", "mi", "tele", "televisor", "television", "tv", "pantalla", "por", "favor", "porfa", "ya", "ahora",
         )
 
+        val BLUETOOTH_TERMS = arrayOf(
+            "bluetooth", "blutu", "blutooth", "bluetuth", "audifonos", "auriculares", "parlante", "bocina",
+        )
+        val PAIRING_VERBS = arrayOf(
+            "conecta", "conectate", "conectar", "conectalo", "empareja", "emparejar", "vincula", "vincular", "enlaza",
+            "agrega", "anade", "busca",
+        )
+
         /** Spoken terms for each settings area. */
         val SETTINGS_SECTIONS = listOf(
-            arrayOf("bluetooth", "blutu", "blutooth", "bluetuth", "audifonos", "auriculares", "parlante", "bocina") to
-                SettingsSection.BLUETOOTH,
+            BLUETOOTH_TERMS to SettingsSection.BLUETOOTH,
             arrayOf("wifi", "wi fi", "wifai", "internet", "red", "redes", "conexion a internet") to SettingsSection.NETWORK,
             arrayOf(
                 "modo de imagen", "imagen", "modo cine", "modo pelicula", "modo deportes", "modo deporte", "modo juego",

@@ -157,7 +157,7 @@ class LocalCommandInterpreterTest {
         assertEquals(listOf(TvAction.OpenApp("play store")), actions("abre play store"))
         assertEquals(listOf(TvAction.Press(RemoteKey.SEARCH)), actions("abre la búsqueda"))
         assertEquals(listOf(TvAction.OpenApp("magis tv")), actions("entra a la aplicación de Magis TV"))
-        assertEquals(listOf(TvAction.Press(RemoteKey.SETTINGS)), actions("abre configuración"))
+        assertEquals(listOf(TvAction.OpenSettings()), actions("abre configuración"))
         assertEquals(listOf(TvAction.LaunchApp(StreamingApp.YOUTUBE)), actions("abre YouTube"))
     }
 
@@ -174,8 +174,13 @@ class LocalCommandInterpreterTest {
     @Test
     fun `everyday settings requests`() {
         assertEquals(listOf(TvAction.OpenSettings(SettingsSection.BLUETOOTH)), actions("Abre ajustes y prende el bluetooth"))
-        assertEquals(listOf(TvAction.Press(RemoteKey.SETTINGS)), actions("abre los ajustes"))
-        assertEquals(listOf(TvAction.Press(RemoteKey.SETTINGS)), actions("entra a configuración"))
+        assertEquals(listOf(TvAction.OpenSettings()), actions("abre los ajustes"))
+        assertEquals(listOf(TvAction.OpenSettings()), actions("entra a configuración"))
+        assertEquals(
+            listOf(TvAction.OpenSettings(SettingsSection.BLUETOOTH_PAIRING)),
+            actions("conéctate por bluetooth a mis audífonos"),
+        )
+        assertEquals(listOf(TvAction.OpenSettings(SettingsSection.BLUETOOTH_PAIRING)), actions("busca dispositivos bluetooth"))
         assertEquals(listOf(TvAction.OpenSettings(SettingsSection.NETWORK)), actions("quiero ver el wifi"))
         assertEquals(listOf(TvAction.OpenSettings(SettingsSection.PICTURE)), actions("cambia el modo de imagen"))
         assertEquals(listOf(TvAction.OpenSettings(SettingsSection.PICTURE)), actions("pon el modo cine"))

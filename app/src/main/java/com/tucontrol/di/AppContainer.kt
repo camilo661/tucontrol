@@ -21,6 +21,7 @@ import com.tucontrol.data.speech.VoskVoiceRecognizer
 import com.tucontrol.data.storage.DataStoreDeviceRepository
 import com.tucontrol.data.storage.DataStoreSettingsRepository
 import com.tucontrol.data.tv.TvControllerFactory
+import com.tucontrol.data.tv.androidtv.AssistantPhrases
 import com.tucontrol.domain.repository.DeviceRepository
 import com.tucontrol.domain.repository.SettingsRepository
 import com.tucontrol.domain.repository.TvDiscovery
@@ -71,7 +72,7 @@ class AppContainer(context: Context) {
     )
 
     val session = RemoteSession(
-        factory = TvControllerFactory(httpClients, deviceRepository, settingsRepository),
+        factory = TvControllerFactory(httpClients, deviceRepository, settingsRepository, AssistantPhrases(appContext.assets)),
         devices = deviceRepository,
         wifi = wifi,
         scope = appScope,

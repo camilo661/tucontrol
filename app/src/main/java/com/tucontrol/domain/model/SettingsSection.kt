@@ -7,4 +7,7 @@ enum class SettingsSection {
     SOUND,
     NETWORK,
     BLUETOOTH,
+
+    /** Bluetooth with pairing started ("conecta mis audífonos por bluetooth"). */
+    BLUETOOTH_PAIRING,
 }

@@ -9,7 +9,6 @@ import com.tucontrol.domain.model.ConnectionState
 import com.tucontrol.domain.model.RemoteKey
 import com.tucontrol.domain.model.TvDevice
 import com.tucontrol.data.speech.AudioPcm
-import com.tucontrol.domain.model.SettingsSection
 import com.tucontrol.domain.model.StreamingApp
 import com.tucontrol.domain.model.TvAction
 import com.tucontrol.domain.repository.SettingsRepository
@@ -147,13 +146,11 @@ class HomeViewModel(
 
     /**
      * Requests TuControl cannot complete on its own but the TV's assistant can, exactly like
-     * the remote's microphone: anything not understood, opening other apps (the TV only lets
-     * TuControl open store pages) and changing a specific setting ("prende el bluetooth").
+     * the remote's microphone: anything not understood, and opening other apps (the TV only
+     * lets TuControl open store pages).
      */
     private fun needsTvAssistant(plan: CommandPlan): Boolean =
-        plan.isEmpty || plan.actions.any { action ->
-            action is TvAction.OpenApp || (action is TvAction.OpenSettings && action.section != SettingsSection.GENERAL)
-        }
+        plan.isEmpty || plan.actions.any { it is TvAction.OpenApp }
 
     fun press(key: RemoteKey) {
         viewModelScope.launch { session.press(key) }
