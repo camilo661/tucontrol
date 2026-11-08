@@ -42,6 +42,7 @@ import com.tucontrol.R
 import com.tucontrol.domain.model.ConnectionState
 import com.tucontrol.domain.model.RemoteKey
 import com.tucontrol.presentation.common.rememberHaptics
+import com.tucontrol.presentation.common.rememberTextInputLauncher
 import com.tucontrol.presentation.common.rememberVoiceInputLauncher
 import com.tucontrol.presentation.components.ActionText
 import com.tucontrol.presentation.components.RemoteButton
@@ -60,11 +61,18 @@ fun HomeScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val haptics = rememberHaptics(state.hapticsEnabled)
     val listState = rememberTransformingLazyColumnState()
+    // Watches without a speech recognizer (and the emulator) type the command instead.
+    val typeCommand = rememberTextInputLauncher(
+        label = stringResource(R.string.home_voice_prompt),
+        onCancelled = viewModel::onListeningCancelled,
+        onUnavailable = viewModel::onVoiceUnavailable,
+        onResult = viewModel::onTranscript,
+    )
     val startVoice = rememberVoiceInputLauncher(
         prompt = stringResource(R.string.home_voice_prompt),
         onResult = viewModel::onTranscript,
         onCancelled = viewModel::onListeningCancelled,
-        onUnavailable = viewModel::onVoiceUnavailable,
+        onUnavailable = typeCommand,
     )
 
     ScreenScaffold(scrollState = listState) { contentPadding ->

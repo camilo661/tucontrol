@@ -2,6 +2,7 @@ package com.tucontrol.presentation.common
 
 import android.app.Activity
 import android.app.RemoteInput
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,11 +16,18 @@ private const val RESULT_KEY = "tucontrol_text"
  * the entered text. Typing on a watch is best delegated to the platform.
  */
 @Composable
-fun rememberTextInputLauncher(label: String, onResult: (String) -> Unit): () -> Unit {
+fun rememberTextInputLauncher(
+    label: String,
+    onCancelled: () -> Unit = {},
+    onUnavailable: () -> Unit = {},
+    onResult: (String) -> Unit,
+): () -> Unit {
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
-        val data = result.data ?: return@rememberLauncherForActivityResult
-        RemoteInput.getResultsFromIntent(data)?.getCharSequence(RESULT_KEY)?.toString()?.let(onResult)
+        val text = result.data
+            ?.takeIf { result.resultCode == Activity.RESULT_OK }
+            ?.let { RemoteInput.getResultsFromIntent(it)?.getCharSequence(RESULT_KEY)?.toString() }
+            ?.takeIf { it.isNotBlank() }
+        if (text != null) onResult(text) else onCancelled()
     }
     return {
         val intent: Intent = RemoteInputIntentHelper.createActionRemoteInputIntent()
@@ -27,6 +35,10 @@ fun rememberTextInputLauncher(label: String, onResult: (String) -> Unit): () -> 
             intent,
             listOf(RemoteInput.Builder(RESULT_KEY).setLabel(label).build()),
         )
-        launcher.launch(intent)
+        try {
+            launcher.launch(intent)
+        } catch (_: ActivityNotFoundException) {
+            onUnavailable()
+        }
     }
 }
