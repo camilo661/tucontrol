@@ -11,6 +11,7 @@ The UI is in Spanish; source code, identifiers and comments are in English.
 | | |
 |---|---|
 | 🎙️ **Voice, free** | Tap and speak: words appear live and the request runs when you stop talking. Uses the watch's speech service, or an offline Spanish model (Vosk, downloaded once) on watches without one. |
+| 👁️ **Screen-aware agent** | With network debugging enabled on an Android TV (one-time approval on the TV), TuControl reads the screen and acts like a person with the remote: opens any installed app, jumps to any settings page and picks items by name, scrolling lists when needed — *"conéctate al Kalley por bluetooth"*, *"pon el modo deportes"*. |
 | 🗣️ **TV assistant relay** | On Android / Google TV, anything the planner cannot do on its own (opening sideloaded apps, "prende el bluetooth", any other request) is handed, in the user's own voice, to the TV's Google Assistant — exactly like the microphone button on the TV remote. |
 | 🧠 **Free step planner** | The built-in assistant (offline, no API key, no cost) splits a request into steps and runs them on its own, showing progress: *"entra a YouTube, busca Despacito y ponla"* → open YouTube → search → play the first result. Optionally, Claude (`claude-opus-5-5`, paid API key) can complement it for free-form conversation. |
 | 🧭 **Beyond buttons** | Tune channels by number, search content (YouTube, Netflix on Android TV; Roku universal search), open 12 streaming apps, media and menu keys. |
@@ -88,6 +89,10 @@ Debug builds include a test hook that runs a phrase exactly as if it had been sp
 adb shell am broadcast -a com.tucontrol.debug.COMMAND -p com.tucontrol.app --es text "'sube el volumen 2'"
 adb logcat -s TuControlTest AndroidTv
 ```
+
+### Screen-aware agent (Android TV)
+
+On the TV: *Settings → System → About* → select *Android TV OS build* 7 times, then *Developer options → USB debugging* on. The first time the watch connects, accept *"Allow debugging?"* with *Always allow*. Without it, TuControl falls back to the TV's Google Assistant and fixed menu paths.
 
 ## Usage
 

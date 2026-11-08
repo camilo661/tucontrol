@@ -150,7 +150,7 @@ class HomeViewModel(
      * lets TuControl open store pages).
      */
     private fun needsTvAssistant(plan: CommandPlan): Boolean =
-        plan.isEmpty || plan.actions.any { it is TvAction.OpenApp }
+        plan.isEmpty || (!session.canLaunchAnyApp && plan.actions.any { it is TvAction.OpenApp })
 
     fun press(key: RemoteKey) {
         viewModelScope.launch { session.press(key) }

@@ -91,6 +91,7 @@
     <string name="action_channel_down">Canal −%1$d</string>
     <string name="action_navigate">Navegando</string>
     <string name="action_select">Seleccionado</string>
+    <string name="action_select_item">Eligiendo “%1$s”</string>
     <string name="action_plan_done">Listo (%1$d pasos) · %2$s</string>
     <string name="action_play_first_result">Reproduciendo el primer resultado</string>
     <string name="action_back">Atrás</string>

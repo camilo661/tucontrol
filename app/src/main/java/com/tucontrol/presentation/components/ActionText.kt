@@ -42,6 +42,7 @@ object ActionText {
                 SettingsSection.BLUETOOTH_PAIRING -> R.string.action_settings_bluetooth_pairing
             },
         )
+        is TvAction.Select -> resources.getString(R.string.action_select_item, action.target)
         is TvAction.TuneChannel -> resources.getString(R.string.action_tune_channel, action.number)
         is TvAction.Search -> action.app
             ?.let { resources.getString(R.string.action_search_in, action.query, it.displayName) }

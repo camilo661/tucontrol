@@ -24,6 +24,17 @@ object AppNames {
     fun compact(text: String): String =
         Normalizer.normalize(text.lowercase(), Normalizer.Form.NFD).filter { it in 'a'..'z' || it in '0'..'9' }
 
+    /** Share of the spoken words found in [text] (0.0–1.0), with the same loose word matching. */
+    fun coverage(spoken: String, text: String): Double {
+        val wanted = words(spoken)
+        if (wanted.isEmpty()) return 0.0
+        val candidates = words(text)
+        return wanted.count { word -> candidates.any { matches(word, it) } }.toDouble() / wanted.size
+    }
+
+    /** Whether [spoken] names [text] closely enough ([MIN_SIMILARITY] of its words). */
+    fun names(spoken: String, text: String): Boolean = coverage(spoken, text) >= MIN_SIMILARITY
+
     /** Best match for [spoken] among [apps], or `null` if none reaches [MIN_SIMILARITY]. */
     fun find(spoken: String, apps: List<InstalledApp>): InstalledApp? {
         val wanted = words(spoken)

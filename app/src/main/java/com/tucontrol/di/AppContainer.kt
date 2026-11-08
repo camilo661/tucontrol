@@ -29,6 +29,7 @@ import com.tucontrol.domain.repository.VoiceRecognizer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import java.io.File
 
 private val Context.dataStore by preferencesDataStore(name = "tucontrol")
 
@@ -72,7 +73,13 @@ class AppContainer(context: Context) {
     )
 
     val session = RemoteSession(
-        factory = TvControllerFactory(httpClients, deviceRepository, settingsRepository, AssistantPhrases(appContext.assets)),
+        factory = TvControllerFactory(
+            http = httpClients,
+            devices = deviceRepository,
+            settings = settingsRepository,
+            phrases = AssistantPhrases(appContext.assets),
+            adbKeys = File(appContext.filesDir, "adb"),
+        ),
         devices = deviceRepository,
         wifi = wifi,
         scope = appScope,

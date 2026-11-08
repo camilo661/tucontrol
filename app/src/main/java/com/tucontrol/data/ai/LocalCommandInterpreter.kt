@@ -147,6 +147,25 @@ class LocalCommandInterpreter : CommandInterpreter {
             return listOf(TvAction.TuneChannel(amount.coerceIn(1, TvAction.MAX_CHANNEL)))
         }
 
+        // "selecciona Kalley", "elige la segunda temporada": pick an on-screen item by name.
+        SELECT_PREFIX.find(clause)?.let { match ->
+            val target = clause.substring(match.range.last + 1).replace(LEADING_ARTICLE, "").trim()
+            if (target.isNotEmpty()) return listOf(TvAction.Select(target))
+        }
+
+        // "pon el modo cine": picture settings → "Modo de imagen" → that mode.
+        if (has(*PICTURE_MODE_WORDS) && (has("modo") || has("imagen"))) {
+            val mode = PICTURE_MODE_WORDS.first { has(it) }
+            return listOf(
+                TvAction.OpenSettings(SettingsSection.PICTURE),
+                TvAction.Select(PICTURE_MODE_OPTION),
+                TvAction.Select(mode),
+            )
+        }
+        if (has("modo de imagen")) {
+            return listOf(TvAction.OpenSettings(SettingsSection.PICTURE), TvAction.Select(PICTURE_MODE_OPTION))
+        }
+
         // TV settings in everyday words: "sube el brillo", "prende el bluetooth", "modo cine".
         if (has("brillo")) {
             return listOf(
@@ -157,11 +176,26 @@ class LocalCommandInterpreter : CommandInterpreter {
                 },
             )
         }
-        SETTINGS_SECTIONS.firstOrNull { (terms, _) -> has(*terms) }?.let { (_, section) ->
-            // "conecta mis audífonos por bluetooth": open Bluetooth and start pairing.
-            val pairing = section == SettingsSection.BLUETOOTH && has(*PAIRING_VERBS)
-            return listOf(TvAction.OpenSettings(if (pairing) SettingsSection.BLUETOOTH_PAIRING else section))
+        // "conéctate al kalley (por bluetooth)": open Bluetooth and pick that device by name;
+        // with no name ("conecta unos audífonos"), start pairing a new one.
+        val connectsDevice = has(*PAIRING_VERBS) && (has(*BLUETOOTH_TERMS) || SETTINGS_SECTIONS.none { (terms, _) -> has(*terms) })
+        if (connectsDevice) {
+            val device = clause.split(' ').filterNot { it in PAIRING_VERBS || it in BLUETOOTH_TERMS || it in DEVICE_FILLER }.joinToString(" ")
+            return if (device.isEmpty()) {
+                listOf(TvAction.OpenSettings(SettingsSection.BLUETOOTH_PAIRING))
+            } else {
+                listOf(
+                    TvAction.OpenSettings(SettingsSection.BLUETOOTH),
+                    TvAction.Select(device),
+                    TvAction.Select(CONNECT_OPTION, optional = true), // Absent if already connected.
+                    TvAction.Select(CONFIRM_OPTION, optional = true), // "¿Conectar a …?" dialog.
+                )
+            }
         }
+        SETTINGS_SECTIONS.firstOrNull { (terms, _) -> has(*terms) }?.let { (_, section) ->
+            return listOf(TvAction.OpenSettings(section))
+        }
+
         if (has("ajustes", "ajuste", "configuracion", "configuraciones", "configurar", "opciones del tv", "opciones de la tele")) {
             return listOf(TvAction.OpenSettings())
         }
@@ -243,9 +277,27 @@ class LocalCommandInterpreter : CommandInterpreter {
         val BLUETOOTH_TERMS = arrayOf(
             "bluetooth", "blutu", "blutooth", "bluetuth", "audifonos", "auriculares", "parlante", "bocina",
         )
+        const val CONNECT_OPTION = "conectar"
+        const val PICTURE_MODE_OPTION = "modo de imagen"
+
+        /** Picture modes as people say them; matched loosely against the TV's own labels. */
+        val PICTURE_MODE_WORDS = arrayOf(
+            "cine", "pelicula", "deporte", "deportes", "juego", "vivo", "vivido", "dinamico", "estandar", "inteligente",
+            "natural", "personal", "usuario",
+        )
+        const val CONFIRM_OPTION = "aceptar"
+
+        val SELECT_PREFIX = Regex("^(?:selecciona|seleccionar|elige|escoge|dale a|dale clic a|ve a la opcion|entra a la opcion|toca)\\s+")
+
+        /** Words around a device name in "conéctate por bluetooth a mis audífonos Kalley". */
+        val DEVICE_FILLER = setOf(
+            "a", "al", "con", "el", "la", "los", "las", "mi", "mis", "por", "de", "del", "un", "unos", "una", "unas",
+            "dispositivo", "dispositivos", "te", "tv", "tele", "ahora", "favor",
+        )
+
         val PAIRING_VERBS = arrayOf(
             "conecta", "conectate", "conectar", "conectalo", "empareja", "emparejar", "vincula", "vincular", "enlaza",
-            "agrega", "anade", "busca",
+            "agrega", "anade", "busca", "conectate", "conectame", "conectarse",
         )
 
         /** Spoken terms for each settings area. */

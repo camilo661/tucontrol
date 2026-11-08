@@ -20,6 +20,16 @@ sealed interface TvAction {
     /** Opens the TV's settings, at [section] where the platform allows it. */
     data class OpenSettings(val section: SettingsSection = SettingsSection.GENERAL) : TvAction
 
+    /**
+     * Picks the on-screen item named [target], as with the D-pad and OK ("conéctate al Kalley").
+     * An [optional] step is skipped when the item is not on screen (e.g. already connected).
+     */
+    data class Select(val target: String, val optional: Boolean = false) : TvAction {
+        init {
+            require(target.isNotBlank()) { "target must not be blank" }
+        }
+    }
+
     /** Tunes a channel by number ("pon el canal 7"), typed on the number keys. */
     data class TuneChannel(val number: Int) : TvAction {
         init {

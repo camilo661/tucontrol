@@ -3,7 +3,9 @@ package com.tucontrol.data.tv
 import com.tucontrol.data.network.LocalHttpClients
 import com.tucontrol.data.tv.androidtv.AndroidTvCertificateStore
 import com.tucontrol.data.tv.androidtv.AndroidTvController
+import com.tucontrol.data.tv.androidtv.AdbScreenAgent
 import com.tucontrol.data.tv.androidtv.AssistantPhrases
+import java.io.File
 import com.tucontrol.data.tv.lg.LgWebOsController
 import com.tucontrol.data.tv.roku.RokuController
 import com.tucontrol.data.tv.samsung.SamsungTizenController
@@ -21,6 +23,7 @@ class TvControllerFactory(
     private val devices: DeviceRepository,
     private val settings: SettingsRepository,
     private val phrases: AssistantPhrases,
+    private val adbKeys: File,
 ) {
     private val androidTvCertificates by lazy { AndroidTvCertificateStore() }
 
@@ -30,7 +33,7 @@ class TvControllerFactory(
         TvBrand.SAMSUNG -> SamsungTizenController(device, http.localTls, devices)
         TvBrand.LG -> LgWebOsController(device, http.localTls, devices)
         TvBrand.SONY -> SonyBraviaController(device, http.plain) { settings.settings.first().sonyPreSharedKey }
-        TvBrand.ANDROID_TV -> AndroidTvController(device, devices, androidTvCertificates, phrases)
+        TvBrand.ANDROID_TV -> AndroidTvController(device, devices, androidTvCertificates, phrases, AdbScreenAgent(adbKeys))
         TvBrand.UNKNOWN -> null
     }
 }

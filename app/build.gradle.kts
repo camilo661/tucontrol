@@ -142,6 +142,7 @@ dependencies {
     implementation(libs.compose.material.icons.extended)
     debugImplementation(libs.wear.compose.ui.tooling)
 
+    implementation(libs.dadb)
     implementation(libs.vosk.android)
     implementation(libs.jna) { artifact { type = "aar" } }
 

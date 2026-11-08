@@ -51,6 +51,15 @@ interface TvController {
      */
     suspend fun sendVoice(pcm: ByteArray): Boolean = false
 
+    /**
+     * Highlights the on-screen item named [target] and presses OK ("selecciona Kalley").
+     * Only TVs whose screen TuControl can read support it.
+     */
+    suspend fun select(target: String): Boolean = false
+
+    /** Whether any installed app can be opened by name right now. */
+    val canLaunchAnyApp: Boolean get() = listsAllApps
+
     /** Whether [installedApps] is the TV's full list (otherwise apps are learned as they are used). */
     val listsAllApps: Boolean get() = false
 

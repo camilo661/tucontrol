@@ -178,12 +178,38 @@ class LocalCommandInterpreterTest {
         assertEquals(listOf(TvAction.OpenSettings()), actions("entra a configuración"))
         assertEquals(
             listOf(TvAction.OpenSettings(SettingsSection.BLUETOOTH_PAIRING)),
-            actions("conéctate por bluetooth a mis audífonos"),
+            actions("conéctate por bluetooth a unos audífonos"),
         )
+        assertEquals(
+            listOf(
+                TvAction.OpenSettings(SettingsSection.BLUETOOTH),
+                TvAction.Select("kalley"),
+                TvAction.Select("conectar", optional = true),
+                TvAction.Select("aceptar", optional = true),
+            ),
+            actions("conéctate al Kalley por bluetooth"),
+        )
+        assertEquals(
+            listOf(
+                TvAction.OpenSettings(SettingsSection.BLUETOOTH),
+                TvAction.Select("kalley"),
+                TvAction.Select("conectar", optional = true),
+                TvAction.Select("aceptar", optional = true),
+            ),
+            actions("conecta el parlante Kalley"),
+        )
+        assertEquals(listOf(TvAction.Select("segunda temporada")), actions("elige la segunda temporada"))
         assertEquals(listOf(TvAction.OpenSettings(SettingsSection.BLUETOOTH_PAIRING)), actions("busca dispositivos bluetooth"))
         assertEquals(listOf(TvAction.OpenSettings(SettingsSection.NETWORK)), actions("quiero ver el wifi"))
-        assertEquals(listOf(TvAction.OpenSettings(SettingsSection.PICTURE)), actions("cambia el modo de imagen"))
-        assertEquals(listOf(TvAction.OpenSettings(SettingsSection.PICTURE)), actions("pon el modo cine"))
+        assertEquals(
+            listOf(TvAction.OpenSettings(SettingsSection.PICTURE), TvAction.Select("modo de imagen")),
+            actions("cambia el modo de imagen"),
+        )
+        assertEquals(
+            listOf(TvAction.OpenSettings(SettingsSection.PICTURE), TvAction.Select("modo de imagen"), TvAction.Select("cine")),
+            actions("pon el modo cine"),
+        )
+        assertEquals(listOf(TvAction.Select("modo de imagen")), actions("selecciona modo de imagen"))
         assertEquals(listOf(TvAction.Press(RemoteKey.BRIGHTNESS_UP, 2)), actions("sube el brillo"))
         assertEquals(listOf(TvAction.Press(RemoteKey.BRIGHTNESS_DOWN, 4)), actions("baja el brillo 4"))
     }

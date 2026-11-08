@@ -44,6 +44,7 @@ class AndroidTvController(
     private val devices: DeviceRepository,
     private val certificates: AndroidTvCertificateStore,
     private val phrases: AssistantPhrases,
+    private val agent: AdbScreenAgent,
 ) : BaseTvController(), PinPairing {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -57,6 +58,7 @@ class AndroidTvController(
     private val foreground = MutableStateFlow<String?>(null)
     @Volatile private var isGoogleTv = false
     private var voiceBegin: CompletableDeferred<Long>? = null
+    @Volatile private var nextAgentAttempt = 0L
     private val voiceLock = Mutex()
 
     override suspend fun connect() {
@@ -66,6 +68,7 @@ class AndroidTvController(
                 val connected = runCatching { openRemoteSession() }.isSuccess
                 if (connected) {
                     mutableState.value = ConnectionState.Connected
+                    scope.launch { agentReady() } // Screen access, when the TV allows it.
                     return
                 }
             }
@@ -166,6 +169,7 @@ class AndroidTvController(
      */
     override suspend fun openSettings(section: SettingsSection) {
         ensureConnected()
+        if (agentReady() && runCatching { agent.openSettings(section) }.getOrDefault(false)) return
         // Start from the home screen: a known state, and it reveals a Google TV launcher.
         pressKey(KEY_CODES.getValue(RemoteKey.HOME))
         withTimeoutOrNull(MENU_DELAY_MS) { foreground.first { it != SETTINGS_PACKAGE } }
@@ -192,13 +196,38 @@ class AndroidTvController(
         delay(KEY_DELAY_MS)
     }
 
+    override val canLaunchAnyApp: Boolean get() = agent.isConnected
+
+    override suspend fun select(target: String): Boolean =
+        agentReady() && runCatching { agent.select(target) }.getOrDefault(false)
+
+    /**
+     * Screen access, reconnecting when needed (e.g. after the user approved the watch on the
+     * TV). A failed attempt is not repeated for a while, so TVs without debugging stay fast.
+     */
+    private suspend fun agentReady(): Boolean {
+        if (agent.isConnected) return true
+        if (System.currentTimeMillis() < nextAgentAttempt) return false
+        return agent.connect(device.host).also { ok ->
+            if (!ok) nextAgentAttempt = System.currentTimeMillis() + AGENT_RETRY_MS
+        }
+    }
+
     override suspend fun installedApps(): List<InstalledApp> {
         val learned = devices.learnedApps(device.id)
+        if (agentReady()) {
+            // The TV's full list, keeping names learned or known for the same packages.
+            val names = (learned + KNOWN_APPS).associate { it.id to it.name }
+            runCatching { agent.launchableApps() }.getOrNull()?.let { apps ->
+                return apps.map { app -> InstalledApp(app.id, names[app.id] ?: app.id) }
+            }
+        }
         return learned + KNOWN_APPS.filterNot { known -> learned.any { it.id == known.id } }
     }
 
     override suspend fun open(app: InstalledApp) {
         ensureConnected()
+        if (agentReady() && runCatching { agent.launch(app.id) }.isSuccess) return
         // The remote service only follows web links (market:// and intent: links are ignored or
         // drop the session), so the app opens through its Play Store page, one OK from "Abrir".
         openLink("https://play.google.com/store/apps/details?id=${app.id}")
@@ -233,6 +262,7 @@ class AndroidTvController(
             ?: packageName
 
     override suspend fun disconnect() {
+        agent.close()
         closeAll()
         mutableState.value = ConnectionState.Disconnected
     }
@@ -423,6 +453,7 @@ class AndroidTvController(
 
         const val KEYCODE_SEARCH = 84
 
+        const val AGENT_RETRY_MS = 60_000L
         const val SETTINGS_PACKAGE = "com.android.tv.settings"
         const val GOOGLE_TV_LAUNCHER = "com.google.android.apps.tv.launcherx"
         const val SETTINGS_OPEN_TIMEOUT_MS = 7_000L

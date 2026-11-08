@@ -181,6 +181,9 @@ class RemoteSession(
         runCatching { active.sendVoice(pcm) }.getOrDefault(false)
     }
 
+    /** Whether any installed app can be opened directly (otherwise the TV's assistant is asked). */
+    val canLaunchAnyApp: Boolean get() = controller.value?.canLaunchAnyApp == true
+
     /** Whether the connected TV lists all its apps, rather than learning them as they are used. */
     val listsAllApps: Boolean get() = controller.value?.listsAllApps == true
 
@@ -201,7 +204,7 @@ class RemoteSession(
                     delay(
                         when (plan.actions[step - 1]) {
                             is TvAction.Search -> SEARCH_RESULTS_DELAY_MS
-                            is TvAction.LaunchApp, is TvAction.OpenApp -> APP_OPEN_DELAY_MS
+                            is TvAction.LaunchApp, is TvAction.OpenApp, is TvAction.OpenSettings -> APP_OPEN_DELAY_MS
                             else -> STEP_DELAY_MS
                         },
                     )
@@ -215,6 +218,7 @@ class RemoteSession(
                     is TvAction.LaunchApp -> active.launch(action.app)
                     is TvAction.OpenApp -> AppNames.find(action.name, active.installedApps())?.let { active.open(it) }
                     is TvAction.OpenSettings -> active.openSettings(action.section)
+                    is TvAction.Select -> if (!active.select(action.target) && !action.optional) return false
                     is TvAction.TuneChannel -> RemoteKey.digitsOf(action.number).forEach { digit ->
                         active.press(digit)
                         delay(REPEAT_DELAY_MS)
