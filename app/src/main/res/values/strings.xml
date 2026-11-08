@@ -8,6 +8,7 @@
     <string name="home_thinking">Interpretando…</string>
     <string name="home_no_tv">Sin TV conectado</string>
     <string name="home_choose_tv">Elegir televisor</string>
+    <string name="home_link_tv_hint">Vincula tu TV para empezar</string>
     <string name="home_voice_prompt">¿Qué quieres hacer?</string>
     <string name="home_not_understood">No entendí: “%1$s”</string>
     <string name="home_voice_unavailable">El reconocimiento de voz no está disponible</string>
@@ -18,6 +19,8 @@
     <!-- Remote -->
     <string name="remote_title">Control</string>
     <string name="remote_volume">Volumen</string>
+    <string name="remote_volume_short">VOL</string>
+    <string name="remote_channel_short">CH</string>
     <string name="remote_channel">Canal</string>
 
     <!-- Devices -->
@@ -47,12 +50,12 @@
 
     <!-- Settings -->
     <string name="settings_title">Ajustes</string>
-    <string name="settings_ai">Asistente con IA</string>
+    <string name="settings_ai">Asistente IA</string>
     <string name="settings_ai_on">Claude interpreta tus frases</string>
-    <string name="settings_ai_off">Solo comandos básicos sin conexión</string>
-    <string name="settings_ai_missing_key">Falta la clave de API de Claude</string>
-    <string name="settings_haptics">Vibración al pulsar</string>
-    <string name="settings_sony_psk">Clave PSK de Sony</string>
+    <string name="settings_ai_off">Solo comandos básicos</string>
+    <string name="settings_ai_missing_key">Requiere clave de API</string>
+    <string name="settings_haptics">Vibración</string>
+    <string name="settings_sony_psk">Clave Sony</string>
     <string name="settings_version">Versión %1$s</string>
 
     <!-- Connection status -->
@@ -89,7 +92,7 @@
     <string name="key_fast_forward">Adelantar</string>
     <string name="key_menu">Menú</string>
     <string name="key_input">Entrada</string>
-    <string name="remote_crown_hint">Gira la corona para el volumen</string>
+    <string name="remote_crown_hint">Gira la corona: volumen</string>
     <string name="remote_media">Multimedia</string>
 
     <!-- Errors -->

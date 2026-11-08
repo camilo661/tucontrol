@@ -42,6 +42,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -160,7 +161,7 @@ private fun VolumeChannelPage(press: (RemoteKey) -> Unit) {
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
             RockerControl(
-                label = stringResource(R.string.remote_volume),
+                label = stringResource(R.string.remote_volume_short),
                 upDescription = stringResource(R.string.key_volume_up),
                 downDescription = stringResource(R.string.key_volume_down),
                 onUp = { press(RemoteKey.VOLUME_UP) },
@@ -173,7 +174,7 @@ private fun VolumeChannelPage(press: (RemoteKey) -> Unit) {
                 size = 40.dp,
             )
             RockerControl(
-                label = stringResource(R.string.remote_channel),
+                label = stringResource(R.string.remote_channel_short),
                 upDescription = stringResource(R.string.key_channel_up),
                 downDescription = stringResource(R.string.key_channel_down),
                 onUp = { press(RemoteKey.CHANNEL_UP) },
@@ -185,6 +186,8 @@ private fun VolumeChannelPage(press: (RemoteKey) -> Unit) {
             text = stringResource(R.string.remote_crown_hint),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 32.dp),
         )
     }
 }
@@ -208,8 +211,9 @@ private fun RockerControl(
         RemoteButton(Icons.Rounded.Add, upDescription, onUp, style = RemoteButtonStyle.PRIMARY, size = 44.dp)
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
             modifier = Modifier.padding(vertical = 6.dp),
         )
         RemoteButton(Icons.Rounded.Remove, downDescription, onDown, size = 44.dp)

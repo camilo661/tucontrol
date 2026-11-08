@@ -159,7 +159,7 @@ private fun VoiceStatus(state: HomeUiState) {
     val resources = LocalResources.current
     val message = when (val voice = state.voice) {
         VoiceState.Idle -> stringResource(
-            if (state.device == null) R.string.home_choose_tv else R.string.home_tap_to_speak,
+            if (state.device == null) R.string.home_link_tv_hint else R.string.home_tap_to_speak,
         )
         VoiceState.Listening -> stringResource(R.string.home_listening)
         VoiceState.Thinking -> stringResource(R.string.home_thinking)
