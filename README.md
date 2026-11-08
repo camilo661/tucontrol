@@ -68,7 +68,7 @@ Requirements: Android Studio (latest), JDK 17+, a Wear OS 3+ watch (API 30+) on 
    The file is git-ignored. Without a key, TuControl still works with the offline command parser.
 3. Run the `app` configuration on a Wear OS device or emulator.
 
-> **Emulator:** the Wear OS emulator has no Wi‑Fi and sits behind NAT, so multicast discovery cannot see the LAN. Debug builds fall back to the emulator's network and sweep the development machine's subnet instead, so real TVs on your network still show up.
+> **Emulator:** the Wear OS emulator has no Wi‑Fi and sits behind NAT, so multicast discovery cannot see the LAN. Debug builds look for TVs from the development machine at build time and the emulator probes those addresses, so real TVs on your network still show up. If a TV was off when you built, rebuild.
 
 ```bash
 ./gradlew :app:assembleDebug        # build

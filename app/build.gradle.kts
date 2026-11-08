@@ -1,7 +1,10 @@
 import com.android.build.api.variant.BuildConfigField
 import java.net.Inet4Address
+import java.net.InetSocketAddress
 import java.net.NetworkInterface
+import java.net.Socket
 import java.util.Properties
+import java.util.concurrent.Executors
 
 plugins {
     alias(libs.plugins.android.application)
@@ -29,7 +32,7 @@ android {
             ?: System.getenv("ANTHROPIC_API_KEY")
             ?: ""
         buildConfigField("String", "ANTHROPIC_API_KEY", "\"$apiKey\"")
-        buildConfigField("String", "DEV_LAN_SUBNETS", "\"\"")
+        buildConfigField("String", "DEV_LAN_HOSTS", "\"\"")
     }
 
     buildTypes {
@@ -66,27 +69,54 @@ android {
 }
 
 /**
- * The development machine's private IPv4 /24 prefixes (e.g. "192.168.1"). The Wear OS
- * emulator sits behind NAT and cannot see LAN multicast, but it can reach these hosts,
- * so debug builds sweep them to find real TVs. Re-evaluated on every build.
+ * Hosts on the development machine's LAN that expose a TV control port
+ * (e.g. "192.168.1.20,192.168.1.31").
+ *
+ * The Wear OS emulator has no Wi‑Fi and sits behind NAT: it cannot see LAN multicast, and
+ * sweeping a whole subnet from inside it exhausts the emulator's NAT sockets. So debug
+ * builds look for TVs here, on the host, and the emulator probes only those.
+ * Re-evaluated on every build; a TV that was off at build time needs a rebuild.
  */
-abstract class HostLanSubnets : ValueSource<String, ValueSourceParameters.None> {
-    override fun obtain(): String = NetworkInterface.getNetworkInterfaces().toList()
-        .filter { it.isUp && !it.isLoopback && !it.isVirtual && !it.isPointToPoint }
-        .flatMap { it.inetAddresses.toList() }
-        .filterIsInstance<Inet4Address>()
-        .filter { it.isSiteLocalAddress }
-        .mapNotNull { it.hostAddress?.substringBeforeLast('.') }
-        .distinct()
-        .joinToString(",")
+abstract class HostLanTvs : ValueSource<String, ValueSourceParameters.None> {
+    private val tvPorts = listOf(6466, 8060, 8001, 8002, 3000)
+
+    override fun obtain(): String {
+        val ownAddresses = NetworkInterface.getNetworkInterfaces().toList()
+            .filter { it.isUp && !it.isLoopback && !it.isVirtual && !it.isPointToPoint }
+            .flatMap { it.inetAddresses.toList() }
+            .filterIsInstance<Inet4Address>()
+            .filter { it.isSiteLocalAddress }
+            .mapNotNull { it.hostAddress }
+        val candidates = ownAddresses
+            .map { it.substringBeforeLast('.') }
+            .distinct()
+            .flatMap { prefix -> (1..254).map { "$prefix.$it" } }
+            .filterNot { it in ownAddresses }
+
+        val pool = Executors.newFixedThreadPool(256)
+        return try {
+            candidates
+                .flatMap { host -> tvPorts.map { port -> host to pool.submit<Boolean> { isOpen(host, port) } } }
+                .filter { (_, open) -> open.get() }
+                .map { it.first }
+                .distinct()
+                .joinToString(",")
+        } finally {
+            pool.shutdownNow()
+        }
+    }
+
+    private fun isOpen(host: String, port: Int): Boolean = runCatching {
+        Socket().use { it.connect(InetSocketAddress(host, port), 400) }
+    }.isSuccess
 }
 
 androidComponents {
     onVariants(selector().withBuildType("debug")) { variant ->
         variant.buildConfigFields?.put(
-            "DEV_LAN_SUBNETS",
-            providers.of(HostLanSubnets::class) {}.map { subnets ->
-                BuildConfigField("String", "\"$subnets\"", "Host LAN subnets reachable from the emulator")
+            "DEV_LAN_HOSTS",
+            providers.of(HostLanTvs::class) {}.map { hosts ->
+                BuildConfigField("String", "\"$hosts\"", "LAN TVs the emulator can reach through NAT")
             },
         )
     }

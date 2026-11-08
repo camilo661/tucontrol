@@ -19,22 +19,21 @@ import java.net.Inet4Address
  * multicast discovery but independent of it: many routers drop SSDP/mDNS between Wi‑Fi
  * bands, and some TVs stop answering multicast while still accepting connections.
  *
- * @param extraSubnets "a.b.c" prefixes to sweep instead of the own subnet when not on Wi‑Fi. Debug builds
- * pass the development machine's LAN so the emulator (behind NAT) can find real TVs.
+ * @param fallbackHosts hosts to probe instead of a sweep when not on Wi‑Fi. Debug builds pass
+ * the live hosts of the development machine's LAN so the emulator (behind NAT) finds real TVs.
  */
 class SubnetScanDiscovery(
     context: Context,
     private val wifi: WifiNetworkProvider,
     private val prober: TvProber,
-    private val extraSubnets: List<String> = emptyList(),
+    private val fallbackHosts: List<String> = emptyList(),
 ) : TvDiscovery {
 
     private val connectivity = context.applicationContext.getSystemService(ConnectivityManager::class.java)
 
     override fun discover(): Flow<TvDevice> = channelFlow {
         val network = wifi.acquire() ?: return@channelFlow
-        val (ownAddresses, subnets) = subnetsOf(network)
-        val hosts = subnets.flatMap { prefix -> (1..254).map { "$prefix.$it" } }.filterNot { it in ownAddresses }
+        val hosts = candidateHosts(network)
 
         // Two stages so that at most a few dozen sockets are open at once: a light liveness
         // sweep over every address, then a full port probe of the hosts that answered.
@@ -49,15 +48,19 @@ class SubnetScanDiscovery(
         }
     }
 
-    private fun subnetsOf(network: Network): Pair<Set<String>, List<String>> {
-        val addresses = connectivity.getLinkProperties(network)?.linkAddresses.orEmpty()
-            .mapNotNull { (it.address as? Inet4Address)?.takeIf(Inet4Address::isSiteLocalAddress)?.hostAddress }
+    private fun candidateHosts(network: Network): List<String> {
         val onWifi = connectivity.getNetworkCapabilities(network)
             ?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
-        val own = addresses.map { it.substringBeforeLast('.') }
-        // Off Wi‑Fi (the emulator's NAT link) the own subnet holds no TVs; sweep the extras instead.
-        val subnets = if (onWifi || extraSubnets.isEmpty()) own else extraSubnets
-        return addresses.toSet() to subnets.distinct()
+        // Off Wi‑Fi (the emulator's NAT link) the own subnet holds no TVs.
+        if (!onWifi && fallbackHosts.isNotEmpty()) return fallbackHosts
+
+        val ownAddresses = connectivity.getLinkProperties(network)?.linkAddresses.orEmpty()
+            .mapNotNull { (it.address as? Inet4Address)?.takeIf(Inet4Address::isSiteLocalAddress)?.hostAddress }
+        return ownAddresses
+            .map { it.substringBeforeLast('.') }
+            .distinct()
+            .flatMap { prefix -> (1..254).map { "$prefix.$it" } }
+            .filterNot { it in ownAddresses }
     }
 
     private companion object {

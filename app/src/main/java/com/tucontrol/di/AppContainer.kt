@@ -49,7 +49,7 @@ class AppContainer(context: Context) {
                 context = appContext,
                 wifi = wifi,
                 prober = prober,
-                extraSubnets = BuildConfig.DEV_LAN_SUBNETS.split(',').filter { it.isNotBlank() },
+                fallbackHosts = BuildConfig.DEV_LAN_HOSTS.split(',').filter { it.isNotBlank() },
             ),
         ),
     )
