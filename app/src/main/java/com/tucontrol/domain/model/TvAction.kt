@@ -10,6 +10,13 @@ sealed interface TvAction {
 
     data class LaunchApp(val app: StreamingApp) : TvAction
 
+    /** Opens any app installed on the TV by its spoken name ("abre Xuper TV"). */
+    data class OpenApp(val name: String) : TvAction {
+        init {
+            require(name.isNotBlank()) { "name must not be blank" }
+        }
+    }
+
     /** Tunes a channel by number ("pon el canal 7"), typed on the number keys. */
     data class TuneChannel(val number: Int) : TvAction {
         init {

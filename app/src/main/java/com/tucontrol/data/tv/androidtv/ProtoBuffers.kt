@@ -64,6 +64,8 @@ class ProtoMessage private constructor(private val fields: Map<Int, List<Any>>) 
 
     fun message(field: Int): ProtoMessage? = bytes(field)?.let(::parse)
 
+    fun string(field: Int): String? = bytes(field)?.decodeToString()
+
     companion object {
         fun parse(data: ByteArray): ProtoMessage {
             val fields = mutableMapOf<Int, MutableList<Any>>()

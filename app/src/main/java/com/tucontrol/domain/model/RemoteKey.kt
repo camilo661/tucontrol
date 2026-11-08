@@ -29,6 +29,7 @@ enum class RemoteKey {
     GUIDE,
     CAPTIONS,
     SETTINGS,
+    SEARCH,
     NUM_0,
     NUM_1,
     NUM_2,

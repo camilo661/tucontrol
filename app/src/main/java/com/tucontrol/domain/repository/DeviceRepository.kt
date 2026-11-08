@@ -1,5 +1,6 @@
 package com.tucontrol.domain.repository
 
+import com.tucontrol.domain.model.InstalledApp
 import com.tucontrol.domain.model.TvDevice
 import kotlinx.coroutines.flow.Flow
 
@@ -14,4 +15,8 @@ interface DeviceRepository {
 
     suspend fun credential(deviceId: String): String?
     suspend fun storeCredential(deviceId: String, value: String)
+
+    /** Apps learned for a TV while the user used it (for platforms that cannot list them). */
+    suspend fun learnedApps(deviceId: String): List<InstalledApp>
+    suspend fun learnApp(deviceId: String, app: InstalledApp)
 }

@@ -3,6 +3,7 @@ package com.tucontrol.data.tv.roku
 import com.tucontrol.data.tv.BaseTvController
 import com.tucontrol.data.tv.TvRejectedException
 import com.tucontrol.domain.model.ConnectionState
+import com.tucontrol.domain.model.InstalledApp
 import com.tucontrol.domain.model.RemoteKey
 import com.tucontrol.domain.model.StreamingApp
 import com.tucontrol.domain.model.TvDevice
@@ -43,6 +44,20 @@ class RokuController(
 
     override fun canLaunch(app: StreamingApp) = app in APP_IDS
 
+    /** Roku lists every installed channel with its name. */
+    override val listsAllApps = true
+
+    override suspend fun installedApps(): List<InstalledApp> = withContext(Dispatchers.IO) {
+        val request = Request.Builder().url("$baseUrl/query/apps").build()
+        val body = http.newCall(request).execute().use { if (it.isSuccessful) it.body.string() else "" }
+        APP_ENTRY.findAll(body).map { InstalledApp(it.groupValues[1], it.groupValues[2].trim()) }.toList()
+    }
+
+    override suspend fun open(app: InstalledApp) {
+        ensureConnected()
+        post("/launch/${app.id}")
+    }
+
     /** Roku's universal search; with a known app it jumps straight into that app's results. */
     override suspend fun search(query: String, app: StreamingApp?) {
         ensureConnected()
@@ -78,6 +93,9 @@ class RokuController(
 
     private companion object {
         const val PORT = 8060
+
+        /** `<app id="12" type="appl" version="5.1">Netflix</app>` */
+        val APP_ENTRY = Regex("<app id=\"([^\"]+)\"[^>]*>([^<]+)</app>")
 
         val KEY_CODES = mapOf(
             RemoteKey.POWER to "Power",

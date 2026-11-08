@@ -1,8 +1,11 @@
 package com.tucontrol.data.tv.androidtv
 
+import android.util.Log
+import com.tucontrol.BuildConfig
 import com.tucontrol.data.tv.BaseTvController
 import com.tucontrol.data.tv.TvRejectedException
 import com.tucontrol.domain.model.ConnectionState
+import com.tucontrol.domain.model.InstalledApp
 import com.tucontrol.domain.model.RemoteKey
 import com.tucontrol.domain.model.StreamingApp
 import com.tucontrol.domain.model.TvDevice
@@ -43,6 +46,9 @@ class AndroidTvController(
     private var serverKey: RSAPublicKey? = null
     private var remoteSocket: SSLSocket? = null
     private var reader: Job? = null
+    /** A name the user asked for that is not known yet; given to the next newly opened app. */
+    @Volatile private var nameForNextApp: String? = null
+    @Volatile private var foregroundApp: String? = null
 
     override suspend fun connect() {
         mutableState.value = ConnectionState.Connecting
@@ -114,10 +120,49 @@ class AndroidTvController(
         }
     }
 
-    /** Opens a deep link (or `market://launch?id=` package link) through the remote service. */
+    /** Opens a web deep link through the remote service; the TV routes it to the matching app. */
     private suspend fun openLink(link: String) {
         sendRemote { message(REMOTE_APP_LINK_LAUNCH) { string(1, link) } }
     }
+
+    override suspend fun installedApps(): List<InstalledApp> {
+        val learned = devices.learnedApps(device.id)
+        return learned + KNOWN_APPS.filterNot { known -> learned.any { it.id == known.id } }
+    }
+
+    override suspend fun open(app: InstalledApp) {
+        ensureConnected()
+        // The remote service only follows web links (market:// and intent: links are ignored or
+        // drop the session), so the app opens through its Play Store page, one OK from "Abrir".
+        openLink("https://play.google.com/store/apps/details?id=${app.id}")
+    }
+
+    override fun learnNextAppAs(name: String) {
+        nameForNextApp = name
+    }
+
+    private suspend fun onForegroundApp(packageName: String) {
+        if (packageName == foregroundApp) return
+        foregroundApp = packageName
+        if (BuildConfig.DEBUG) Log.d(TAG, "Foreground app on ${device.name}: $packageName")
+        if (packageName in SYSTEM_PACKAGES) return
+        val known = installedApps().firstOrNull { it.id == packageName }
+        val requested = nameForNextApp
+        when {
+            requested != null && known == null -> {
+                devices.learnApp(device.id, InstalledApp(packageName, requested))
+                nameForNextApp = null
+            }
+            known == null -> devices.learnApp(device.id, InstalledApp(packageName, nameFromPackage(packageName)))
+        }
+    }
+
+    /** "com.xupertv.app" → "xupertv": the most descriptive segment of a package name. */
+    private fun nameFromPackage(packageName: String): String =
+        packageName.split('.')
+            .filterNot { it in GENERIC_PACKAGE_SEGMENTS }
+            .maxByOrNull { it.length }
+            ?: packageName
 
     override suspend fun disconnect() {
         closeAll()
@@ -182,6 +227,7 @@ class AndroidTvController(
     // region Remote session (port 6466)
 
     private suspend fun openRemoteSession() {
+        closeRemote() // Never keep a previous session alive alongside the new one.
         val socket = withContext(Dispatchers.IO) { openTls(REMOTE_PORT) }
         remoteSocket = socket
         val ready = CompletableDeferred<Unit>()
@@ -221,6 +267,10 @@ class AndroidTvController(
                         sendRemote { message(REMOTE_PING_RESPONSE) { int(1, value) } }
                     }
                     message.has(REMOTE_START) -> ready.complete(Unit)
+                    message.has(REMOTE_IME_KEY_INJECT) -> {
+                        // The TV reports the app in the foreground; learn it to open it by name later.
+                        message.message(REMOTE_IME_KEY_INJECT)?.message(1)?.string(APP_PACKAGE)?.let { onForegroundApp(it) }
+                    }
                 }
             }
         } catch (error: Throwable) {
@@ -261,6 +311,7 @@ class AndroidTvController(
     }
 
     private companion object {
+        const val TAG = "AndroidTv"
         const val PAIRED = "paired"
         const val PAIRING_PORT = 6467
         const val REMOTE_PORT = 6466
@@ -289,7 +340,45 @@ class AndroidTvController(
         const val REMOTE_PING_REQUEST = 8
         const val REMOTE_PING_RESPONSE = 9
         const val REMOTE_KEY_INJECT = 10
+        const val REMOTE_IME_KEY_INJECT = 20
         const val REMOTE_START = 40
+
+        /** RemoteAppInfo.app_package inside RemoteImeKeyInject.app_info. */
+        const val APP_PACKAGE = 12
+
+        /** Launchers, the assistant and system UI are not apps the user asks for by name. */
+        val SYSTEM_PACKAGES = setOf(
+            "com.google.android.tvlauncher",
+            "com.google.android.apps.tv.launcherx",
+            "com.google.android.katniss",
+            "com.android.systemui",
+            "com.google.android.tv.remote.service",
+        )
+        val GENERIC_PACKAGE_SEGMENTS = setOf("com", "org", "net", "tv", "android", "app", "apps", "google", "leanback", "atv", "androidtv")
+
+        /** Common Android TV apps, so they open by name before ever being learned. */
+        val KNOWN_APPS = listOf(
+            InstalledApp("com.google.android.youtube.tv", "YouTube"),
+            InstalledApp("com.google.android.youtube.tvmusic", "YouTube Music"),
+            InstalledApp("com.google.android.youtube.tvkids", "YouTube Kids"),
+            InstalledApp("com.netflix.ninja", "Netflix"),
+            InstalledApp("com.amazon.amazonvideo.livingroom", "Prime Video"),
+            InstalledApp("com.disney.disneyplus", "Disney+"),
+            InstalledApp("com.spotify.tv.android", "Spotify"),
+            InstalledApp("com.android.vending", "Play Store"),
+            InstalledApp("com.google.android.videos", "Google TV"),
+            InstalledApp("com.apple.atve.androidtv.appletv", "Apple TV"),
+            InstalledApp("com.cbs.ott", "Paramount+"),
+            InstalledApp("com.crunchyroll.crunchyroid", "Crunchyroll"),
+            InstalledApp("tv.pluto.android", "Pluto TV"),
+            InstalledApp("com.plexapp.android", "Plex"),
+            InstalledApp("com.univision.prendetv", "ViX"),
+            InstalledApp("tv.twitch.android.app", "Twitch"),
+            InstalledApp("org.xbmc.kodi", "Kodi"),
+            InstalledApp("org.videolan.vlc", "VLC"),
+            InstalledApp("com.tubitv", "Tubi"),
+            InstalledApp("deezer.android.tv", "Deezer"),
+        )
         const val REMOTE_APP_LINK_LAUNCH = 90
 
         /** Feature bitmask advertised by official remotes (ping, key, IME, power, volume, app link). */
@@ -325,6 +414,7 @@ class AndroidTvController(
             RemoteKey.GUIDE to 172,
             RemoteKey.CAPTIONS to 175,
             RemoteKey.SETTINGS to 176,
+            RemoteKey.SEARCH to 84,
             // KEYCODE_0..KEYCODE_9 are consecutive (7..16).
             *RemoteKey.entries.filter { it.name.startsWith("NUM_") }
                 .map { it to 7 + it.name.removePrefix("NUM_").toInt() }
@@ -336,14 +426,14 @@ class AndroidTvController(
             StreamingApp.YOUTUBE to "https://www.youtube.com",
             StreamingApp.PRIME_VIDEO to "https://app.primevideo.com",
             StreamingApp.DISNEY_PLUS to "https://www.disneyplus.com",
-            StreamingApp.SPOTIFY to "spotify://",
+            StreamingApp.SPOTIFY to "https://open.spotify.com",
             StreamingApp.MAX to "https://play.max.com",
-            StreamingApp.APPLE_TV to "market://launch?id=com.apple.atve.androidtv.appletv",
-            StreamingApp.PARAMOUNT_PLUS to "market://launch?id=com.cbs.ott",
-            StreamingApp.CRUNCHYROLL to "market://launch?id=com.crunchyroll.crunchyroid",
-            StreamingApp.PLUTO_TV to "market://launch?id=tv.pluto.android",
-            StreamingApp.PLEX to "market://launch?id=com.plexapp.android",
-            StreamingApp.VIX to "market://launch?id=com.univision.prendetv",
+            StreamingApp.APPLE_TV to "https://play.google.com/store/apps/details?id=com.apple.atve.androidtv.appletv",
+            StreamingApp.PARAMOUNT_PLUS to "https://play.google.com/store/apps/details?id=com.cbs.ott",
+            StreamingApp.CRUNCHYROLL to "https://play.google.com/store/apps/details?id=com.crunchyroll.crunchyroid",
+            StreamingApp.PLUTO_TV to "https://play.google.com/store/apps/details?id=tv.pluto.android",
+            StreamingApp.PLEX to "https://play.google.com/store/apps/details?id=com.plexapp.android",
+            StreamingApp.VIX to "https://play.google.com/store/apps/details?id=com.univision.prendetv",
         )
     }
 }

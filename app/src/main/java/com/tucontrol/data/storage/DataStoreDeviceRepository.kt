@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.tucontrol.domain.model.InstalledApp
 import com.tucontrol.domain.model.TvDevice
 import com.tucontrol.domain.repository.DeviceRepository
 import kotlinx.coroutines.flow.Flow
@@ -33,6 +34,7 @@ class DataStoreDeviceRepository(
         store.edit { prefs ->
             prefs[DEVICES] = json.encodeToString(prefs.decodeDevices().filterNot { it.id == deviceId })
             prefs.remove(credentialKey(deviceId))
+            prefs.remove(appsKey(deviceId))
             if (prefs[ACTIVE_DEVICE] == deviceId) prefs.remove(ACTIVE_DEVICE)
         }
     }
@@ -49,10 +51,26 @@ class DataStoreDeviceRepository(
         store.edit { it[credentialKey(deviceId)] = value }
     }
 
+    override suspend fun learnedApps(deviceId: String): List<InstalledApp> =
+        store.data.first()[appsKey(deviceId)]
+            ?.let { runCatching { json.decodeFromString<List<InstalledApp>>(it) }.getOrNull() }
+            .orEmpty()
+
+    override suspend fun learnApp(deviceId: String, app: InstalledApp) {
+        store.edit { prefs ->
+            val known = prefs[appsKey(deviceId)]
+                ?.let { runCatching { json.decodeFromString<List<InstalledApp>>(it) }.getOrNull() }
+                .orEmpty()
+            prefs[appsKey(deviceId)] = json.encodeToString(known.filterNot { it.id == app.id } + app)
+        }
+    }
+
     private fun Preferences.decodeDevices(): List<TvDevice> =
         this[DEVICES]?.let { runCatching { json.decodeFromString<List<TvDevice>>(it) }.getOrNull() }.orEmpty()
 
     private fun credentialKey(deviceId: String) = stringPreferencesKey("credential:$deviceId")
+
+    private fun appsKey(deviceId: String) = stringPreferencesKey("apps:$deviceId")
 
     private companion object {
         val DEVICES = stringPreferencesKey("devices")

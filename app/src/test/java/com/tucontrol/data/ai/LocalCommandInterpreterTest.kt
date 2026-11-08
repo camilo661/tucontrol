@@ -149,4 +149,24 @@ class LocalCommandInterpreterTest {
         assertEquals(listOf(TvAction.TuneChannel(7)), actions("pon el canal 7"))
         assertEquals(listOf(TvAction.Press(RemoteKey.PAUSE)), actions("pon pausa"))
     }
+
+    @Test
+    fun `any other app is opened by its spoken name`() {
+        assertEquals(listOf(TvAction.OpenApp("xuper tv")), actions("Abre Xuper TV"))
+        assertEquals(listOf(TvAction.OpenApp("play store")), actions("abre play store"))
+        assertEquals(listOf(TvAction.Press(RemoteKey.SEARCH)), actions("abre la búsqueda"))
+        assertEquals(listOf(TvAction.OpenApp("magis tv")), actions("entra a la aplicación de Magis TV"))
+        assertEquals(listOf(TvAction.Press(RemoteKey.SETTINGS)), actions("abre configuración"))
+        assertEquals(listOf(TvAction.LaunchApp(StreamingApp.YOUTUBE)), actions("abre YouTube"))
+    }
+
+    @Test
+    fun `navigation continues inside an app opened by name`() {
+        assertEquals(
+            listOf(TvAction.OpenApp("xuper tv"), TvAction.Press(RemoteKey.DOWN, 2), TvAction.Press(RemoteKey.OK)),
+            actions("abre xuper tv, baja dos y selecciona"),
+        )
+        // Its content cannot be searched through YouTube by mistake.
+        assertTrue(interpreter.analyze("abre xuper tv y busca la casa de papel").plan.actions.none { it is TvAction.Search })
+    }
 }

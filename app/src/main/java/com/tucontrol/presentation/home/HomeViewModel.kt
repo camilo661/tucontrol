@@ -40,6 +40,9 @@ sealed interface VoiceState {
     data class Executed(val plan: CommandPlan) : VoiceState
     data class NotUnderstood(val transcript: String) : VoiceState
     data class AppUnavailable(val app: StreamingApp) : VoiceState
+
+    /** "abre <name>" for an app the TV does not have, or that has not been learned yet. */
+    data class AppNotFound(val name: String, val canLearn: Boolean) : VoiceState
     data object NotHeard : VoiceState
     data object SendFailed : VoiceState
     data object MicDenied : VoiceState
@@ -120,9 +123,11 @@ class HomeViewModel(
         voice.value = VoiceState.Thinking(transcript)
         val plan = interpreter.interpret(transcript)
         val missingApp = session.unsupportedApps(plan).firstOrNull()
+        val unknownApp = session.unknownApps(plan).firstOrNull()
         val outcome = when {
             plan.isEmpty -> VoiceState.NotUnderstood(transcript)
             missingApp != null -> VoiceState.AppUnavailable(missingApp)
+            unknownApp != null -> VoiceState.AppNotFound(unknownApp, canLearn = !session.listsAllApps)
             session.execute(plan) { step -> if (plan.actions.size > 1) voice.value = VoiceState.Running(plan, step) } ->
                 VoiceState.Executed(plan)
             else -> VoiceState.SendFailed
@@ -139,13 +144,14 @@ class HomeViewModel(
         voice.value = state
         resetJob?.cancel()
         resetJob = viewModelScope.launch {
-            delay(FEEDBACK_DURATION_MS)
+            delay(if (state is VoiceState.AppNotFound) LONG_FEEDBACK_DURATION_MS else FEEDBACK_DURATION_MS)
             voice.value = VoiceState.Idle
         }
     }
 
     companion object {
         private const val FEEDBACK_DURATION_MS = 3_500L
+        private const val LONG_FEEDBACK_DURATION_MS = 7_000L
 
         val Factory = containerFactory { HomeViewModel(session, interpreter, voiceRecognizer, settingsRepository) }
     }

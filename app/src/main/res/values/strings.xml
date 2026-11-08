@@ -18,6 +18,8 @@
     <string name="home_voice_download_failed">No se pudo descargar la voz. Revisa el Wi‑Fi</string>
     <string name="home_mic_denied">Permite el micrófono para hablar</string>
     <string name="home_running_step">Paso %1$d de %2$d · %3$s</string>
+    <string name="home_app_learn">Aún no conozco %1$s. Ábrela una vez con el control del TV y la recordaré</string>
+    <string name="home_app_not_installed">%1$s no está instalada en el TV</string>
     <string name="home_app_unavailable">%1$s no está disponible en este TV</string>
     <string name="home_remote">Control</string>
     <string name="home_devices">Televisores</string>
@@ -106,6 +108,7 @@
     <string name="action_guide">Guía</string>
     <string name="action_captions">Subtítulos</string>
     <string name="action_settings">Ajustes del TV</string>
+    <string name="action_open_search">Abriendo la búsqueda</string>
     <string name="action_number">Número %1$s</string>
     <string name="action_tune_channel">Canal %1$d</string>
     <string name="action_search">Buscando “%1$s”</string>

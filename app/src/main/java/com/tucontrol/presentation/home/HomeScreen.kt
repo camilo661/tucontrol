@@ -197,6 +197,10 @@ private fun VoiceStatus(state: HomeUiState) {
         is VoiceState.Executed -> ActionText.describe(resources, voice.plan)
         is VoiceState.NotUnderstood -> stringResource(R.string.home_not_understood, voice.transcript)
         is VoiceState.AppUnavailable -> stringResource(R.string.home_app_unavailable, voice.app.displayName)
+        is VoiceState.AppNotFound -> stringResource(
+            if (voice.canLearn) R.string.home_app_learn else R.string.home_app_not_installed,
+            ActionText.appName(voice.name),
+        )
         VoiceState.NotHeard -> stringResource(R.string.home_not_heard)
         VoiceState.SendFailed -> stringResource(R.string.action_failed)
         VoiceState.MicDenied -> stringResource(R.string.home_mic_denied)
@@ -220,7 +224,7 @@ private fun VoiceStatus(state: HomeUiState) {
             style = MaterialTheme.typography.bodyMedium,
             color = color,
             textAlign = TextAlign.Center,
-            maxLines = 2,
+            maxLines = 3,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
         )

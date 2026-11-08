@@ -30,6 +30,7 @@ object ActionText {
 
     private fun describe(resources: Resources, action: TvAction): String = when (action) {
         is TvAction.LaunchApp -> resources.getString(R.string.action_open_app, action.app.displayName)
+        is TvAction.OpenApp -> resources.getString(R.string.action_open_app, appName(action.name))
         is TvAction.TuneChannel -> resources.getString(R.string.action_tune_channel, action.number)
         is TvAction.Search -> action.app
             ?.let { resources.getString(R.string.action_search_in, action.query, it.displayName) }
@@ -58,11 +59,16 @@ object ActionText {
             RemoteKey.GUIDE -> resources.getString(R.string.action_guide)
             RemoteKey.CAPTIONS -> resources.getString(R.string.action_captions)
             RemoteKey.SETTINGS -> resources.getString(R.string.action_settings)
+            RemoteKey.SEARCH -> resources.getString(R.string.action_open_search)
             RemoteKey.NUM_0, RemoteKey.NUM_1, RemoteKey.NUM_2, RemoteKey.NUM_3, RemoteKey.NUM_4,
             RemoteKey.NUM_5, RemoteKey.NUM_6, RemoteKey.NUM_7, RemoteKey.NUM_8, RemoteKey.NUM_9,
             -> resources.getString(R.string.action_number, action.key.name.removePrefix("NUM_"))
         }
     }
+
+    /** "xuper tv" → "Xuper Tv": how a spoken app name is shown. */
+    fun appName(spoken: String): String =
+        spoken.split(' ').joinToString(" ") { word -> word.replaceFirstChar(Char::titlecase) }
 
     fun status(state: ConnectionState): Int = when (state) {
         ConnectionState.Connected -> R.string.status_connected

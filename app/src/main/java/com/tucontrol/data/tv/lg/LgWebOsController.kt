@@ -4,6 +4,7 @@ import com.tucontrol.data.network.WebSocketSession
 import com.tucontrol.data.tv.BaseTvController
 import com.tucontrol.data.tv.TvRejectedException
 import com.tucontrol.domain.model.ConnectionState
+import com.tucontrol.domain.model.InstalledApp
 import com.tucontrol.domain.model.RemoteKey
 import com.tucontrol.domain.model.StreamingApp
 import com.tucontrol.domain.model.TvDevice
@@ -18,14 +19,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
-import kotlinx.serialization.json.add
 import okhttp3.OkHttpClient
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
@@ -88,6 +90,26 @@ class LgWebOsController(
     }
 
     override fun canLaunch(app: StreamingApp) = app in APP_IDS
+
+    /** webOS lists every installed app with its title. */
+    override val listsAllApps = true
+
+    override suspend fun installedApps(): List<InstalledApp> {
+        ensureConnected()
+        val apps = request("ssap://com.webos.applicationManager/listApps")["payload"]
+            ?.jsonObject?.get("apps")?.jsonArray.orEmpty()
+        return apps.mapNotNull { entry ->
+            val app = entry.jsonObject
+            val id = app["id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            val title = app["title"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            InstalledApp(id, title)
+        }
+    }
+
+    override suspend fun open(app: InstalledApp) {
+        ensureConnected()
+        request("ssap://system.launcher/launch", buildJsonObject { put("id", app.id) })
+    }
 
     override suspend fun launch(app: StreamingApp) {
         ensureConnected()

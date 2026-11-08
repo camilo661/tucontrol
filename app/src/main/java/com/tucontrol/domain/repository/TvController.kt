@@ -1,6 +1,7 @@
 package com.tucontrol.domain.repository
 
 import com.tucontrol.domain.model.ConnectionState
+import com.tucontrol.domain.model.InstalledApp
 import com.tucontrol.domain.model.RemoteKey
 import com.tucontrol.domain.model.StreamingApp
 import com.tucontrol.domain.model.TvDevice
@@ -30,6 +31,20 @@ interface TvController {
     }
 
     suspend fun disconnect()
+
+    /** Whether [installedApps] is the TV's full list (otherwise apps are learned as they are used). */
+    val listsAllApps: Boolean get() = false
+
+    /** Apps that can be opened by name: listed by the TV, or learned while the user uses it. */
+    suspend fun installedApps(): List<InstalledApp> = emptyList()
+
+    suspend fun open(app: InstalledApp) = Unit
+
+    /**
+     * For TVs that only reveal the app in use: label the next newly opened app as [name], so
+     * "abre <name>" works after the user opens it once with the TV's own remote.
+     */
+    fun learnNextAppAs(name: String) = Unit
 }
 
 /** Implemented by controllers whose pairing requires a PIN shown on the TV. */

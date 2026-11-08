@@ -31,18 +31,25 @@ class LocalCommandInterpreter : CommandInterpreter {
             if (previous?.isContentRequest == true && !COMMAND_START.containsMatchIn(clause)) {
                 steps.removeAt(steps.lastIndex)
                 val merged = previous.clause + separator + clause
-                steps += Step(merged, parseClause(merged, previous.context, steps.lastOrNull()?.actions?.lastOrNull()), previous.context)
+                val actions = parseClause(merged, previous.context, previous.inOtherApp, steps.lastOrNull()?.actions?.lastOrNull())
+                steps += Step(merged, actions, previous.context, previous.inOtherApp)
                 continue
             }
             val context = previous?.contextAfter
-            steps += Step(clause, parseClause(clause, context, previous?.actions?.lastOrNull()), context)
+            val inOtherApp = previous?.inOtherAppAfter == true
+            steps += Step(clause, parseClause(clause, context, inOtherApp, previous?.actions?.lastOrNull()), context, inOtherApp)
         }
         val unmatched = steps.count { it.actions.isEmpty() || it.isOpenEnded }
         return Result(CommandPlan(steps.flatMap { it.actions }), unmatched)
     }
 
     /** One clause of the request and the actions planned for it. */
-    private class Step(val clause: String, val actions: List<TvAction>, val context: StreamingApp?) {
+    private class Step(
+        val clause: String,
+        val actions: List<TvAction>,
+        val context: StreamingApp?,
+        val inOtherApp: Boolean = false,
+    ) {
         val isContentRequest: Boolean get() = actions.any { it is TvAction.Search }
 
         /**
@@ -52,6 +59,14 @@ class LocalCommandInterpreter : CommandInterpreter {
         val isOpenEnded: Boolean
             get() = isContentRequest && context == null && APP_ALIASES.keys.none { alias -> alias in clause }
 
+        /** Whether the TV is in an app opened by name (no built-in search) after this step. */
+        val inOtherAppAfter: Boolean
+            get() = when (actions.lastOrNull { it is TvAction.LaunchApp || it is TvAction.Search || it is TvAction.OpenApp }) {
+                is TvAction.OpenApp -> true
+                null -> inOtherApp
+                else -> false
+            }
+
         /** The app the TV is in after this step, used by later steps ("…y busca X"). */
         val contextAfter: StreamingApp?
             get() = actions.asReversed().firstNotNullOfOrNull {
@@ -60,7 +75,7 @@ class LocalCommandInterpreter : CommandInterpreter {
                     is TvAction.Search -> it.app
                     else -> null
                 }
-            } ?: context
+            } ?: context.takeUnless { inOtherAppAfter }
     }
 
     /** Splits on "y", "luego", "después", commas…, keeping each clause's separator. */
@@ -77,7 +92,7 @@ class LocalCommandInterpreter : CommandInterpreter {
         return result
     }
 
-    private fun parseClause(clause: String, context: StreamingApp?, previous: TvAction?): List<TvAction> {
+    private fun parseClause(clause: String, context: StreamingApp?, inOtherApp: Boolean, previous: TvAction?): List<TvAction> {
         val words = clause.split(' ').filter { it.isNotEmpty() }.toSet()
         fun has(vararg terms: String) = terms.any { term ->
             if (' ' in term) term in clause else term in words
@@ -88,14 +103,16 @@ class LocalCommandInterpreter : CommandInterpreter {
         // "busca stranger things en netflix" → search, in the named app or the one already open.
         SEARCH_PREFIX.find(clause)?.let { match ->
             val query = contentAfter(clause, match.range.last + 1)
-            return if (query.isNotEmpty()) listOf(TvAction.Search(query, app ?: context)) else emptyList()
+            // Apps opened by name have no search TuControl can drive; don't fall back to YouTube.
+            if (query.isEmpty() || (app == null && inOtherApp)) return emptyList()
+            return listOf(TvAction.Search(query, app ?: context))
         }
 
         // "pon despacito en youtube" → search, then play the first result.
         PLAY_PREFIX.find(clause)?.let { match ->
             val content = contentAfter(clause, match.range.last + 1)
             val isContent = content.isNotEmpty() && !APP_NAME.matches(content) && !CONTROL_WORDS.containsMatchIn(content)
-            if (isContent) {
+            if (isContent && (app != null || !inOtherApp)) {
                 return listOf(TvAction.Search(content, app ?: context ?: StreamingApp.YOUTUBE), TvAction.Press(RemoteKey.OK))
             }
         }
@@ -104,6 +121,13 @@ class LocalCommandInterpreter : CommandInterpreter {
         if (previous is TvAction.Search && has(*PLAY_RESULT_WORDS)) return listOf(TvAction.Press(RemoteKey.OK))
 
         app?.let { return listOf(TvAction.LaunchApp(it)) }
+
+        // "abre xuper tv" / "abre play store": any other app, matched by name on the TV.
+        // TV functions ("abre ajustes", "abre la búsqueda") fall through to the keys below.
+        OPEN_PREFIX.find(clause)?.let { match ->
+            val name = contentAfter(clause, match.range.last + 1).replace(LEADING_ARTICLE, "").trim()
+            if (name.isNotEmpty() && !TV_FUNCTION.containsMatchIn(name)) return listOf(TvAction.OpenApp(name))
+        }
 
         val isVolume = has("volumen", "sonido", "audio")
         val isChannel = has("canal", "canales")
@@ -122,6 +146,7 @@ class LocalCommandInterpreter : CommandInterpreter {
             has("informacion", "info") -> RemoteKey.INFO
             has("guia", "programacion") -> RemoteKey.GUIDE
             has("ajustes", "configuracion") -> RemoteKey.SETTINGS
+            has("busqueda", "buscador", "lupa") -> RemoteKey.SEARCH
             has("silencio", "silencia", "silenciar", "mute", "quita el sonido", "apaga el sonido", "activa el sonido") -> RemoteKey.MUTE
             isVolume && increase -> RemoteKey.VOLUME_UP
             isVolume && decrease -> RemoteKey.VOLUME_DOWN
@@ -141,6 +166,10 @@ class LocalCommandInterpreter : CommandInterpreter {
             has("entrada", "fuente", "hdmi") -> RemoteKey.INPUT
             has("arriba") -> RemoteKey.UP
             has("abajo") -> RemoteKey.DOWN
+            // Bare "baja/sube dos" moves through menus; "bájale/súbele" stays volume (above).
+            has("baja", "bajar") -> RemoteKey.DOWN
+            has("sube", "subir") -> RemoteKey.UP
+            has("bajale", "subele") -> if (has("bajale")) RemoteKey.VOLUME_DOWN else RemoteKey.VOLUME_UP
             has("izquierda") -> RemoteKey.LEFT
             has("derecha") -> RemoteKey.RIGHT
             has("ok", "aceptar", "acepta", "selecciona", "seleccionar", "enter", "entrar") -> RemoteKey.OK
@@ -200,6 +229,18 @@ class LocalCommandInterpreter : CommandInterpreter {
         )
 
         val SEARCH_PREFIX = Regex("^(?:(?:por favor|quiero|puedes)\\s+)?(?:busca|buscar|buscame|encuentra)\\b")
+        val OPEN_PREFIX = Regex(
+            "^(?:(?:por favor|quiero|puedes)\\s+)?(?:abre|abrir|abreme|entra|entrar|ve|vete|inicia|iniciar|lanza|" +
+                "ejecuta)(?:\\s+(?:a|al|en))?(?:\\s+la\\s+(?:app|aplicacion)(?:\\s+de)?)?\\b",
+        )
+        val LEADING_ARTICLE = Regex("^(?:el|la|los|las)\\s+")
+
+        /** Things "abre …" can mean on the TV itself rather than an app. */
+        val TV_FUNCTION = Regex(
+            "^(?:ajustes|configuracion|busqueda|buscador|lupa|menu|opciones|inicio|pantalla principal|guia|" +
+                "programacion|entrada|fuente|hdmi|subtitulos|informacion|info|canal)\\b",
+        )
+
         val PLAY_PREFIX = Regex(
             "^(?:(?:por favor|quiero|puedes)\\s+)?(?:ponme|pon|poner|reproduce|reproducir|reproduceme|toca|tocame|" +
                 "escucha|escuchar|oir|ver|mira|mirar|muestrame)\\b",

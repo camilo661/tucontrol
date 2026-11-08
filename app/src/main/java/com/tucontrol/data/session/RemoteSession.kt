@@ -2,6 +2,7 @@ package com.tucontrol.data.session
 
 import com.tucontrol.data.network.WifiNetworkProvider
 import com.tucontrol.data.tv.TvControllerFactory
+import com.tucontrol.domain.model.AppNames
 import com.tucontrol.domain.model.CommandPlan
 import com.tucontrol.domain.model.ConnectionError
 import com.tucontrol.domain.model.ConnectionState
@@ -44,6 +45,13 @@ class RemoteSession(
     private val sessionError = MutableStateFlow<ConnectionError?>(null)
     private val commandLock = Mutex()
 
+    /**
+     * Every connect/disconnect goes through this lock. Returning from another screen (e.g.
+     * the keyboard) triggers a reconnect while a command may reconnect too; without it the
+     * TV could end up with two sessions from this watch.
+     */
+    private val connectionLock = Mutex()
+
     private val mutableDevice = MutableStateFlow<TvDevice?>(null)
     val device: StateFlow<TvDevice?> = mutableDevice.asStateFlow()
 
@@ -65,10 +73,10 @@ class RemoteSession(
     fun onForeground() {
         scope.launch {
             val current = mutableDevice.value
-            if (current != null) {
-                if (state.value !is ConnectionState.AwaitingPin) connect(current)
-            } else {
+            if (current == null) {
                 restore()
+            } else if (state.value !is ConnectionState.AwaitingPin) {
+                connect(current)
             }
         }
     }
@@ -77,8 +85,10 @@ class RemoteSession(
     fun onBackground() {
         scope.launch {
             commandLock.withLock {
-                if (state.value !is ConnectionState.AwaitingPin) controller.value?.disconnect()
-                wifi.release()
+                connectionLock.withLock {
+                    if (state.value !is ConnectionState.AwaitingPin) controller.value?.disconnect()
+                    wifi.release()
+                }
             }
         }
     }
@@ -91,9 +101,11 @@ class RemoteSession(
         connect(saved)
     }
 
-    suspend fun connect(target: TvDevice) {
-        sessionError.value = null
+    suspend fun connect(target: TvDevice) = connectionLock.withLock {
         val current = controller.value
+        // Already linked to this TV (e.g. a command reconnected first): nothing to do.
+        if (current?.device?.id == target.id && current.state.value == ConnectionState.Connected) return@withLock
+        sessionError.value = null
         if (current != null && current.device.id != target.id) current.disconnect()
 
         mutableDevice.value = target
@@ -101,11 +113,11 @@ class RemoteSession(
         controller.value = next
         if (next == null) {
             sessionError.value = ConnectionError.UNSUPPORTED
-            return
+            return@withLock
         }
         if (wifi.acquire() == null) {
             sessionError.value = ConnectionError.NO_WIFI
-            return
+            return@withLock
         }
 
         next.connect()
@@ -146,14 +158,30 @@ class RemoteSession(
     }
 
     /**
+     * Names of apps in [plan] that the TV does not have (or has not been seen using yet).
+     * On TVs that learn apps, the first one is armed to be learned the next time it opens.
+     */
+    suspend fun unknownApps(plan: CommandPlan): List<String> {
+        val active = controller.value ?: return emptyList()
+        val names = plan.actions.filterIsInstance<TvAction.OpenApp>().map { it.name }
+        if (names.isEmpty()) return emptyList()
+        val apps = runCatching { active.installedApps() }.getOrDefault(emptyList())
+        val unknown = names.filter { AppNames.find(it, apps) == null }
+        unknown.firstOrNull()?.let(active::learnNextAppAs)
+        return unknown
+    }
+
+    /** Whether the connected TV lists all its apps, rather than learning them as they are used. */
+    val listsAllApps: Boolean get() = controller.value?.listsAllApps == true
+
+    /**
      * Runs every action in order, autonomously, reporting each step as it starts through
      * [onStep] (0-based). Returns `false` when there is no usable connection.
      */
     suspend fun execute(plan: CommandPlan, onStep: (Int) -> Unit = {}): Boolean = commandLock.withLock {
         val active = controller.value ?: return false
         if (active.state.value != ConnectionState.Connected) {
-            if (wifi.acquire() == null) return false
-            active.connect()
+            connect(active.device)
             if (active.state.value != ConnectionState.Connected) return false
         }
         try {
@@ -163,7 +191,7 @@ class RemoteSession(
                     delay(
                         when (plan.actions[step - 1]) {
                             is TvAction.Search -> SEARCH_RESULTS_DELAY_MS
-                            is TvAction.LaunchApp -> APP_OPEN_DELAY_MS
+                            is TvAction.LaunchApp, is TvAction.OpenApp -> APP_OPEN_DELAY_MS
                             else -> STEP_DELAY_MS
                         },
                     )
@@ -175,6 +203,7 @@ class RemoteSession(
                         active.press(action.key)
                     }
                     is TvAction.LaunchApp -> active.launch(action.app)
+                    is TvAction.OpenApp -> AppNames.find(action.name, active.installedApps())?.let { active.open(it) }
                     is TvAction.TuneChannel -> RemoteKey.digitsOf(action.number).forEach { digit ->
                         active.press(digit)
                         delay(REPEAT_DELAY_MS)
