@@ -196,6 +196,7 @@ private fun VoiceStatus(state: HomeUiState) {
         )
         is VoiceState.Executed -> ActionText.describe(resources, voice.plan)
         is VoiceState.NotUnderstood -> stringResource(R.string.home_not_understood, voice.transcript)
+        is VoiceState.SentToTvAssistant -> stringResource(R.string.home_sent_to_tv)
         is VoiceState.AppUnavailable -> stringResource(R.string.home_app_unavailable, voice.app.displayName)
         is VoiceState.AppNotFound -> stringResource(
             if (voice.canLearn) R.string.home_app_learn else R.string.home_app_not_installed,
@@ -208,7 +209,7 @@ private fun VoiceStatus(state: HomeUiState) {
         VoiceState.Unavailable -> stringResource(R.string.home_voice_unavailable)
     }
     val color = when (state.voice) {
-        is VoiceState.Executed -> MaterialTheme.colorScheme.secondary
+        is VoiceState.Executed, is VoiceState.SentToTvAssistant -> MaterialTheme.colorScheme.secondary
         is VoiceState.Listening, is VoiceState.Thinking, is VoiceState.Running -> MaterialTheme.colorScheme.onSurface
         VoiceState.Idle, is VoiceState.Preparing -> MaterialTheme.colorScheme.onSurfaceVariant
         else -> MaterialTheme.colorScheme.error

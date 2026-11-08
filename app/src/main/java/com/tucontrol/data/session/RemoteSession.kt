@@ -171,6 +171,16 @@ class RemoteSession(
         return unknown
     }
 
+    /** Whether the connected TV has an assistant that can take the user's voice as-is. */
+    val hasTvAssistant: Boolean get() = controller.value?.hasVoiceAssistant == true
+
+    /** Hands [pcm] (16-bit mono, 8 kHz) to the TV's own assistant. */
+    suspend fun sendVoiceToTv(pcm: ByteArray): Boolean = commandLock.withLock {
+        val active = controller.value ?: return false
+        if (active.state.value != ConnectionState.Connected) connect(active.device)
+        runCatching { active.sendVoice(pcm) }.getOrDefault(false)
+    }
+
     /** Whether the connected TV lists all its apps, rather than learning them as they are used. */
     val listsAllApps: Boolean get() = controller.value?.listsAllApps == true
 

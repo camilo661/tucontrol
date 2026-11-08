@@ -11,6 +11,7 @@ The UI is in Spanish; source code, identifiers and comments are in English.
 | | |
 |---|---|
 | 🎙️ **Voice, free** | Tap and speak: words appear live and the request runs when you stop talking. Uses the watch's speech service, or an offline Spanish model (Vosk, downloaded once) on watches without one. |
+| 🗣️ **TV assistant relay** | On Android / Google TV, anything the planner cannot do on its own (opening sideloaded apps, "prende el bluetooth", any other request) is handed, in the user's own voice, to the TV's Google Assistant — exactly like the microphone button on the TV remote. |
 | 🧠 **Free step planner** | The built-in assistant (offline, no API key, no cost) splits a request into steps and runs them on its own, showing progress: *"entra a YouTube, busca Despacito y ponla"* → open YouTube → search → play the first result. Optionally, Claude (`claude-opus-5-5`, paid API key) can complement it for free-form conversation. |
 | 🧭 **Beyond buttons** | Tune channels by number, search content (YouTube, Netflix on Android TV; Roku universal search), open 12 streaming apps, media and menu keys. |
 | 📡 **Automatic discovery** | Finds TVs on the same Wi‑Fi network using SSDP/UPnP, DIAL and mDNS, plus a direct subnet sweep for routers that block multicast. TVs can also be added by IP address. |

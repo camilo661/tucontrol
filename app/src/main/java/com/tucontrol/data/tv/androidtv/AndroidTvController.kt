@@ -49,6 +49,8 @@ class AndroidTvController(
     /** A name the user asked for that is not known yet; given to the next newly opened app. */
     @Volatile private var nameForNextApp: String? = null
     @Volatile private var foregroundApp: String? = null
+    private var voiceBegin: CompletableDeferred<Long>? = null
+    private val voiceLock = Mutex()
 
     override suspend fun connect() {
         mutableState.value = ConnectionState.Connecting
@@ -123,6 +125,31 @@ class AndroidTvController(
     /** Opens a web deep link through the remote service; the TV routes it to the matching app. */
     private suspend fun openLink(link: String) {
         sendRemote { message(REMOTE_APP_LINK_LAUNCH) { string(1, link) } }
+    }
+
+    override val hasVoiceAssistant = true
+
+    /**
+     * Same flow as the official remote's microphone: the search key makes the TV open its
+     * assistant and offer a voice session, which is accepted by echoing it, fed with audio
+     * and closed. The TV ignores chunks under 8 KB.
+     */
+    override suspend fun sendVoice(pcm: ByteArray): Boolean = voiceLock.withLock {
+        ensureConnected()
+        val begin = CompletableDeferred<Long>().also { voiceBegin = it }
+        try {
+            sendRemote { message(REMOTE_KEY_INJECT) { int(1, KEYCODE_SEARCH); int(2, DIRECTION_SHORT) } }
+            val session = withTimeout(VOICE_BEGIN_TIMEOUT_MS) { begin.await() }
+            sendRemote { message(REMOTE_VOICE_BEGIN) { int(1, session) } }
+            pcm.asSequence().chunked(VOICE_CHUNK_BYTES).forEach { chunk ->
+                val samples = chunk.toByteArray().copyOf(maxOf(chunk.size, VOICE_MIN_CHUNK_BYTES))
+                sendRemote { message(REMOTE_VOICE_PAYLOAD) { int(1, session); bytes(2, samples) } }
+            }
+            sendRemote { message(REMOTE_VOICE_END) { int(1, session) } }
+            true
+        } finally {
+            voiceBegin = null
+        }
     }
 
     override suspend fun installedApps(): List<InstalledApp> {
@@ -267,6 +294,8 @@ class AndroidTvController(
                         sendRemote { message(REMOTE_PING_RESPONSE) { int(1, value) } }
                     }
                     message.has(REMOTE_START) -> ready.complete(Unit)
+                    message.has(REMOTE_VOICE_BEGIN) ->
+                        voiceBegin?.complete(message.message(REMOTE_VOICE_BEGIN)?.long(1) ?: 0L)
                     message.has(REMOTE_SET_VOLUME_LEVEL) && BuildConfig.DEBUG -> {
                         val volume = message.message(REMOTE_SET_VOLUME_LEVEL)
                         Log.d(TAG, "Volume on ${device.name}: ${volume?.long(7)}/${volume?.long(6)} muted=${volume?.long(8) == 1L}")
@@ -347,6 +376,14 @@ class AndroidTvController(
         const val REMOTE_IME_KEY_INJECT = 20
         const val REMOTE_START = 40
         const val REMOTE_SET_VOLUME_LEVEL = 50
+        const val REMOTE_VOICE_BEGIN = 30
+        const val REMOTE_VOICE_PAYLOAD = 31
+        const val REMOTE_VOICE_END = 32
+
+        const val KEYCODE_SEARCH = 84
+        const val VOICE_BEGIN_TIMEOUT_MS = 3_000L
+        const val VOICE_CHUNK_BYTES = 20 * 1024
+        const val VOICE_MIN_CHUNK_BYTES = 8 * 1024
 
         /** RemoteAppInfo.app_package inside RemoteImeKeyInject.app_info. */
         const val APP_PACKAGE = 12

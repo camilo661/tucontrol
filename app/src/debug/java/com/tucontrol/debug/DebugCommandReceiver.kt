@@ -15,13 +15,27 @@ import kotlinx.coroutines.launch
  * can be exercised against a real TV without the microphone:
  *
  * `adb shell am broadcast -a com.tucontrol.debug.COMMAND --es text "sube el volumen"`
+ *
+ * or hands a recorded request to the TV's assistant (`--es voice <file in app storage>`).
  */
 class DebugCommandReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        val text = intent.getStringExtra(EXTRA_TEXT) ?: return
         val container = (context.applicationContext as TuControlApp).container
         val pending = goAsync()
+        // A raw 8 kHz PCM file in app storage: hand it to the TV's assistant as voice.
+        intent.getStringExtra(EXTRA_VOICE_FILE)?.let { name ->
+            scope.launch {
+                try {
+                    val pcm = java.io.File(context.filesDir, name).readBytes()
+                    Log.d(TAG, "voice $name (${pcm.size} bytes) → ${container.session.sendVoiceToTv(pcm)}")
+                } finally {
+                    pending.finish()
+                }
+            }
+            return
+        }
+        val text = intent.getStringExtra(EXTRA_TEXT) ?: return pending.finish()
         scope.launch {
             try {
                 val plan = container.interpreter.interpret(text)
@@ -43,6 +57,7 @@ class DebugCommandReceiver : BroadcastReceiver() {
     private companion object {
         const val TAG = "TuControlTest"
         const val EXTRA_TEXT = "text"
+        const val EXTRA_VOICE_FILE = "voice"
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     }
 }

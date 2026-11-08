@@ -33,4 +33,12 @@ class AppNamesTest {
         assertNull(AppNames.find("magis tv", apps))
         assertNull(AppNames.find("tv", apps))
     }
+
+    @Test
+    fun `half of the spoken words is enough`() {
+        val withXuper = apps + InstalledApp("com.xuper.crystalclear", "Xuper Crystal Clear")
+        assertEquals("com.xuper.crystalclear", AppNames.find("xuper crystal clear", withXuper)?.id)
+        assertEquals("com.xuper.crystalclear", AppNames.find("abre super cristal clear", withXuper.drop(2))?.id)
+        assertEquals("com.xuper.crystalclear", AppNames.find("crystal", withXuper)?.id)
+    }
 }

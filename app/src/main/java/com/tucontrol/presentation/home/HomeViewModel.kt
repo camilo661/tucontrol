@@ -8,7 +8,10 @@ import com.tucontrol.domain.model.CommandPlan
 import com.tucontrol.domain.model.ConnectionState
 import com.tucontrol.domain.model.RemoteKey
 import com.tucontrol.domain.model.TvDevice
+import com.tucontrol.data.speech.AudioPcm
+import com.tucontrol.domain.model.SettingsSection
 import com.tucontrol.domain.model.StreamingApp
+import com.tucontrol.domain.model.TvAction
 import com.tucontrol.domain.repository.SettingsRepository
 import com.tucontrol.domain.repository.VoiceEvent
 import com.tucontrol.domain.repository.VoiceFailure
@@ -40,6 +43,9 @@ sealed interface VoiceState {
     data class Executed(val plan: CommandPlan) : VoiceState
     data class NotUnderstood(val transcript: String) : VoiceState
     data class AppUnavailable(val app: StreamingApp) : VoiceState
+
+    /** The request was handed, as spoken, to the TV's own assistant. */
+    data class SentToTvAssistant(val transcript: String) : VoiceState
 
     /** "abre <name>" for an app the TV does not have, or that has not been learned yet. */
     data class AppNotFound(val name: String, val canLearn: Boolean) : VoiceState
@@ -93,7 +99,7 @@ class HomeViewModel(
                     is VoiceEvent.Preparing -> voice.value = VoiceState.Preparing(event.progress)
                     VoiceEvent.Ready -> voice.value = VoiceState.Listening()
                     is VoiceEvent.Partial -> voice.value = VoiceState.Listening(event.text)
-                    is VoiceEvent.Final -> runCommand(event.text)
+                    is VoiceEvent.Final -> runCommand(event.text, event.audio)
                     is VoiceEvent.Failed -> show(
                         when (event.reason) {
                             VoiceFailure.NO_SPEECH -> VoiceState.NotHeard
@@ -119,9 +125,13 @@ class HomeViewModel(
         listenJob = viewModelScope.launch { runCommand(text) }
     }
 
-    private suspend fun runCommand(transcript: String) {
+    private suspend fun runCommand(transcript: String, audio: ByteArray? = null) {
         voice.value = VoiceState.Thinking(transcript)
         val plan = interpreter.interpret(transcript)
+        if (audio != null && session.hasTvAssistant && needsTvAssistant(plan)) {
+            show(if (session.sendVoiceToTv(AudioPcm.downsampleForTv(audio))) VoiceState.SentToTvAssistant(transcript) else VoiceState.SendFailed)
+            return
+        }
         val missingApp = session.unsupportedApps(plan).firstOrNull()
         val unknownApp = session.unknownApps(plan).firstOrNull()
         val outcome = when {
@@ -134,6 +144,16 @@ class HomeViewModel(
         }
         show(outcome)
     }
+
+    /**
+     * Requests TuControl cannot complete on its own but the TV's assistant can, exactly like
+     * the remote's microphone: anything not understood, opening other apps (the TV only lets
+     * TuControl open store pages) and changing a specific setting ("prende el bluetooth").
+     */
+    private fun needsTvAssistant(plan: CommandPlan): Boolean =
+        plan.isEmpty || plan.actions.any { action ->
+            action is TvAction.OpenApp || (action is TvAction.OpenSettings && action.section != SettingsSection.GENERAL)
+        }
 
     fun press(key: RemoteKey) {
         viewModelScope.launch { session.press(key) }

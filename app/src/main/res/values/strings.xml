@@ -18,6 +18,7 @@
     <string name="home_voice_download_failed">No se pudo descargar la voz. Revisa el Wi‑Fi</string>
     <string name="home_mic_denied">Permite el micrófono para hablar</string>
     <string name="home_running_step">Paso %1$d de %2$d · %3$s</string>
+    <string name="home_sent_to_tv">Se lo pedí al asistente de tu TV</string>
     <string name="home_app_learn">Aún no conozco %1$s. Ábrela una vez con el control del TV y la recordaré</string>
     <string name="home_app_not_installed">%1$s no está instalada en el TV</string>
     <string name="home_app_unavailable">%1$s no está disponible en este TV</string>

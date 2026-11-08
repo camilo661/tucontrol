@@ -9,6 +9,9 @@ import com.tucontrol.domain.model.TvDevice
 import kotlinx.coroutines.flow.StateFlow
 
 /** Drives one TV through its native network protocol. */
+/** Sample rate of the audio passed to [TvController.sendVoice]. */
+const val VOICE_SAMPLE_RATE = 8_000
+
 interface TvController {
     val device: TvDevice
     val state: StateFlow<ConnectionState>
@@ -38,6 +41,15 @@ interface TvController {
      * the settings key; the user continues by voice ("baja", "selecciona").
      */
     suspend fun openSettings(section: SettingsSection) = press(RemoteKey.SETTINGS)
+
+    /** Whether the TV has its own voice assistant that [sendVoice] can talk to. */
+    val hasVoiceAssistant: Boolean get() = false
+
+    /**
+     * Hands a spoken request to the TV's own assistant, as the microphone button of its remote
+     * does. [pcm] is 16-bit mono PCM at [VOICE_SAMPLE_RATE] Hz. Returns `false` if unsupported.
+     */
+    suspend fun sendVoice(pcm: ByteArray): Boolean = false
 
     /** Whether [installedApps] is the TV's full list (otherwise apps are learned as they are used). */
     val listsAllApps: Boolean get() = false

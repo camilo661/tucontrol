@@ -21,7 +21,11 @@ sealed interface VoiceEvent {
     /** What has been heard so far; may still change. */
     data class Partial(val text: String) : VoiceEvent
 
-    data class Final(val text: String) : VoiceEvent
+    /**
+     * The complete request. [audio] is the recording (16-bit mono PCM, 16 kHz) when the engine
+     * exposes it, so it can be handed to the TV's own assistant.
+     */
+    class Final(val text: String, val audio: ByteArray? = null) : VoiceEvent
 
     data class Failed(val reason: VoiceFailure) : VoiceEvent
 }
