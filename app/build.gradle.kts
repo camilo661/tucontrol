@@ -17,6 +17,18 @@ val secrets = Properties().apply {
     if (file.exists()) file.inputStream().use(::load)
 }
 
+/**
+ * Release signing, kept outside the repository: TUCONTROL_SIGNING points to a properties file
+ * (storeFile, storePassword, keyAlias, keyPassword); ~/tucontrol-release/keystore.properties by
+ * default. Without it, release builds are produced unsigned.
+ */
+val signing = Properties().apply {
+    val path = System.getenv("TUCONTROL_SIGNING")
+        ?: "${System.getProperty("user.home")}/tucontrol-release/keystore.properties"
+    val file = File(path)
+    if (file.exists()) file.inputStream().use(::load)
+}
+
 android {
     namespace = "com.tucontrol"
     compileSdk = 37
@@ -38,8 +50,20 @@ android {
         ndk { abiFilters += setOf("arm64-v8a", "armeabi-v7a") }
     }
 
+    signingConfigs {
+        if (signing.containsKey("storeFile")) {
+            create("release") {
+                storeFile = File(signing.getProperty("storeFile"))
+                storePassword = signing.getProperty("storePassword")
+                keyAlias = signing.getProperty("keyAlias")
+                keyPassword = signing.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
