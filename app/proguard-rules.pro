@@ -14,3 +14,9 @@
 -dontwarn com.google.auto.value.AutoValue
 -dontwarn java.lang.reflect.AnnotatedParameterizedType
 -dontwarn java.lang.reflect.AnnotatedType
+
+# Vosk offline speech: JNA binds native functions to these classes by name.
+-keep class com.sun.jna.** { *; }
+-keep class * implements com.sun.jna.** { *; }
+-keep class org.vosk.** { *; }
+-dontwarn java.awt.**

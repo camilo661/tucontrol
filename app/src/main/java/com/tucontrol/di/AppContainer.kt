@@ -14,12 +14,17 @@ import com.tucontrol.data.discovery.TvProber
 import com.tucontrol.data.network.LocalHttpClients
 import com.tucontrol.data.network.WifiNetworkProvider
 import com.tucontrol.data.session.RemoteSession
+import com.tucontrol.data.speech.DeviceVoiceRecognizer
+import com.tucontrol.data.speech.SystemVoiceRecognizer
+import com.tucontrol.data.speech.VoskModelStore
+import com.tucontrol.data.speech.VoskVoiceRecognizer
 import com.tucontrol.data.storage.DataStoreDeviceRepository
 import com.tucontrol.data.storage.DataStoreSettingsRepository
 import com.tucontrol.data.tv.TvControllerFactory
 import com.tucontrol.domain.repository.DeviceRepository
 import com.tucontrol.domain.repository.SettingsRepository
 import com.tucontrol.domain.repository.TvDiscovery
+import com.tucontrol.domain.repository.VoiceRecognizer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -58,6 +63,11 @@ class AppContainer(context: Context) {
         local = LocalCommandInterpreter(),
         remote = BuildConfig.ANTHROPIC_API_KEY.takeIf { it.isNotBlank() }?.let(::ClaudeCommandInterpreter),
         settings = settingsRepository,
+    )
+
+    val voiceRecognizer: VoiceRecognizer = DeviceVoiceRecognizer(
+        system = SystemVoiceRecognizer(appContext),
+        offline = VoskVoiceRecognizer(VoskModelStore(appContext, httpClients.plain)),
     )
 
     val session = RemoteSession(

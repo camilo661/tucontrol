@@ -33,6 +33,9 @@ android {
             ?: ""
         buildConfigField("String", "ANTHROPIC_API_KEY", "\"$apiKey\"")
         buildConfigField("String", "DEV_LAN_HOSTS", "\"\"")
+
+        // Wear OS watches are ARM; the emulator image used here is arm64 too.
+        ndk { abiFilters += setOf("arm64-v8a", "armeabi-v7a") }
     }
 
     buildTypes {
@@ -63,6 +66,8 @@ android {
                 "/META-INF/DEPENDENCIES",
                 "/META-INF/INDEX.LIST",
                 "/META-INF/*.kotlin_module",
+                // GraalVM native-image metadata shipped by the Anthropic SDK; unused on Android.
+                "/META-INF/native-image/**",
             )
         }
     }
@@ -136,6 +141,9 @@ dependencies {
     implementation(libs.wear.input)
     implementation(libs.compose.material.icons.extended)
     debugImplementation(libs.wear.compose.ui.tooling)
+
+    implementation(libs.vosk.android)
+    implementation(libs.jna) { artifact { type = "aar" } }
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)

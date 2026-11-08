@@ -10,7 +10,8 @@ The UI is in Spanish; source code, identifiers and comments are in English.
 
 | | |
 |---|---|
-| 🎙️ **Voice + AI** | Spanish speech recognition. Simple commands are parsed offline in milliseconds; free-form phrases are interpreted by Claude (`claude-opus-5-5`) with a strict JSON schema. |
+| 🎙️ **Voice + AI** | Tap and speak: words appear live and the command runs as soon as you stop talking. Uses the watch's speech service, or an offline Spanish model (Vosk, downloaded once) on watches without one. Simple commands are parsed offline; free-form requests ("no oigo nada", "quiero ver algo de Marvel") are interpreted by Claude (`claude-opus-5-5`) with a strict JSON schema. |
+| 🧭 **Beyond buttons** | Tune channels by number, search content (YouTube, Netflix on Android TV; Roku universal search), open 12 streaming apps, media and menu keys. |
 | 📡 **Automatic discovery** | Finds TVs on the same Wi‑Fi network using SSDP/UPnP, DIAL and mDNS, plus a direct subnet sweep for routers that block multicast. TVs can also be added by IP address. |
 | 📺 **Multi-brand** | Samsung (Tizen), LG (webOS), Sony (Bravia), Roku, and Android TV / Google TV (Sony, TCL, Hisense, Philips, Xiaomi, Chromecast with Google TV…). |
 | 🎮 **Full remote** | Circular D‑pad, volume and channel rockers, media controls. Turn the crown/bezel to change volume. |
@@ -86,6 +87,7 @@ Requirements: Android Studio (latest), JDK 17+, a Wear OS 3+ watch (API 30+) on 
    - "Siguiente canal" · "Baja dos canales"
    - "Abre YouTube y luego sube el volumen"
    - "Pausa" · "Adelanta" · "Atrás" · "Inicio"
+   - "Pon el canal 7" · "Busca Stranger Things en Netflix" · "Siguiente capítulo" · "Subtítulos"
 4. Open **Control** for the full remote; swipe between pages and turn the crown for volume.
 
 ## License

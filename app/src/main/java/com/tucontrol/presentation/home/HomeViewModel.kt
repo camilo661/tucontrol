@@ -8,7 +8,11 @@ import com.tucontrol.domain.model.CommandPlan
 import com.tucontrol.domain.model.ConnectionState
 import com.tucontrol.domain.model.RemoteKey
 import com.tucontrol.domain.model.TvDevice
+import com.tucontrol.domain.model.StreamingApp
 import com.tucontrol.domain.repository.SettingsRepository
+import com.tucontrol.domain.repository.VoiceEvent
+import com.tucontrol.domain.repository.VoiceFailure
+import com.tucontrol.domain.repository.VoiceRecognizer
 import com.tucontrol.presentation.common.containerFactory
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -23,12 +27,23 @@ import kotlinx.coroutines.launch
 /** What the voice assistant is doing right now. */
 sealed interface VoiceState {
     data object Idle : VoiceState
-    data object Listening : VoiceState
-    data object Thinking : VoiceState
+
+    /** Setting up offline speech; [progress] is the download fraction, `null` while loading. */
+    data class Preparing(val progress: Float?) : VoiceState
+
+    /** The microphone is open; [heard] is the live transcript. */
+    data class Listening(val heard: String = "") : VoiceState
+    data class Thinking(val transcript: String) : VoiceState
     data class Executed(val plan: CommandPlan) : VoiceState
     data class NotUnderstood(val transcript: String) : VoiceState
+    data class AppUnavailable(val app: StreamingApp) : VoiceState
+    data object NotHeard : VoiceState
     data object SendFailed : VoiceState
+    data object MicDenied : VoiceState
+    data object ModelUnavailable : VoiceState
     data object Unavailable : VoiceState
+
+    val isActive: Boolean get() = this is Preparing || this is Listening || this is Thinking
 }
 
 data class HomeUiState(
@@ -41,11 +56,13 @@ data class HomeUiState(
 class HomeViewModel(
     private val session: RemoteSession,
     private val interpreter: HybridCommandInterpreter,
+    private val recognizer: VoiceRecognizer,
     settings: SettingsRepository,
 ) : ViewModel() {
 
     private val voice = MutableStateFlow<VoiceState>(VoiceState.Idle)
     private var resetJob: Job? = null
+    private var listenJob: Job? = null
 
     val uiState: StateFlow<HomeUiState> = combine(
         session.device,
@@ -56,28 +73,57 @@ class HomeViewModel(
         HomeUiState(device, connection, voiceState, haptics)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
-    fun onListeningStarted() {
+    /** Tap on the microphone: start listening, or stop if already busy. */
+    fun toggleListening() {
+        if (voice.value.isActive) {
+            cancelListening()
+            return
+        }
         resetJob?.cancel()
-        voice.value = VoiceState.Listening
+        listenJob = viewModelScope.launch {
+            voice.value = VoiceState.Listening()
+            recognizer.listen().collect { event ->
+                when (event) {
+                    is VoiceEvent.Preparing -> voice.value = VoiceState.Preparing(event.progress)
+                    VoiceEvent.Ready -> voice.value = VoiceState.Listening()
+                    is VoiceEvent.Partial -> voice.value = VoiceState.Listening(event.text)
+                    is VoiceEvent.Final -> runCommand(event.text)
+                    is VoiceEvent.Failed -> show(
+                        when (event.reason) {
+                            VoiceFailure.NO_SPEECH -> VoiceState.NotHeard
+                            VoiceFailure.MODEL_UNAVAILABLE -> VoiceState.ModelUnavailable
+                            VoiceFailure.ENGINE -> VoiceState.Unavailable
+                        },
+                    )
+                }
+            }
+        }
     }
 
-    fun onListeningCancelled() {
+    fun cancelListening() {
+        listenJob?.cancel()
         voice.value = VoiceState.Idle
     }
 
-    fun onVoiceUnavailable() = show(VoiceState.Unavailable)
+    fun onMicrophoneDenied() = show(VoiceState.MicDenied)
 
-    fun onTranscript(transcript: String) {
-        voice.value = VoiceState.Thinking
-        viewModelScope.launch {
-            val plan = interpreter.interpret(transcript)
-            val outcome = when {
-                plan.isEmpty -> VoiceState.NotUnderstood(transcript)
-                session.execute(plan) -> VoiceState.Executed(plan)
-                else -> VoiceState.SendFailed
-            }
-            show(outcome)
+    /** A typed command (fallback when the microphone is not allowed). */
+    fun onTypedCommand(text: String) {
+        listenJob?.cancel()
+        listenJob = viewModelScope.launch { runCommand(text) }
+    }
+
+    private suspend fun runCommand(transcript: String) {
+        voice.value = VoiceState.Thinking(transcript)
+        val plan = interpreter.interpret(transcript)
+        val missingApp = session.unsupportedApps(plan).firstOrNull()
+        val outcome = when {
+            plan.isEmpty -> VoiceState.NotUnderstood(transcript)
+            missingApp != null -> VoiceState.AppUnavailable(missingApp)
+            session.execute(plan) -> VoiceState.Executed(plan)
+            else -> VoiceState.SendFailed
         }
+        show(outcome)
     }
 
     fun press(key: RemoteKey) {
@@ -97,6 +143,6 @@ class HomeViewModel(
     companion object {
         private const val FEEDBACK_DURATION_MS = 3_500L
 
-        val Factory = containerFactory { HomeViewModel(session, interpreter, settingsRepository) }
+        val Factory = containerFactory { HomeViewModel(session, interpreter, voiceRecognizer, settingsRepository) }
     }
 }

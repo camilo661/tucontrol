@@ -18,7 +18,14 @@ import androidx.compose.material.icons.rounded.Gamepad
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Tv
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,7 +50,6 @@ import com.tucontrol.domain.model.ConnectionState
 import com.tucontrol.domain.model.RemoteKey
 import com.tucontrol.presentation.common.rememberHaptics
 import com.tucontrol.presentation.common.rememberTextInputLauncher
-import com.tucontrol.presentation.common.rememberVoiceInputLauncher
 import com.tucontrol.presentation.components.ActionText
 import com.tucontrol.presentation.components.RemoteButton
 import com.tucontrol.presentation.components.RemoteButtonStyle
@@ -61,19 +67,27 @@ fun HomeScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val haptics = rememberHaptics(state.hapticsEnabled)
     val listState = rememberTransformingLazyColumnState()
-    // Watches without a speech recognizer (and the emulator) type the command instead.
+    val context = LocalContext.current
+    // Without microphone access the user can still type the command.
     val typeCommand = rememberTextInputLauncher(
         label = stringResource(R.string.home_voice_prompt),
-        onCancelled = viewModel::onListeningCancelled,
-        onUnavailable = viewModel::onVoiceUnavailable,
-        onResult = viewModel::onTranscript,
+        onResult = viewModel::onTypedCommand,
     )
-    val startVoice = rememberVoiceInputLauncher(
-        prompt = stringResource(R.string.home_voice_prompt),
-        onResult = viewModel::onTranscript,
-        onCancelled = viewModel::onListeningCancelled,
-        onUnavailable = typeCommand,
-    )
+    val requestMicrophone = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            viewModel.toggleListening()
+        } else {
+            viewModel.onMicrophoneDenied()
+            typeCommand()
+        }
+    }
+    val startVoice = {
+        val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        if (granted) viewModel.toggleListening() else requestMicrophone.launch(Manifest.permission.RECORD_AUDIO)
+    }
+    // Release the microphone when the user leaves the screen.
+    DisposableEffect(Unit) { onDispose { viewModel.cancelListening() } }
 
     ScreenScaffold(scrollState = listState) { contentPadding ->
         TransformingLazyColumn(state = listState, contentPadding = contentPadding) {
@@ -88,8 +102,8 @@ fun HomeScreen(
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     VoiceButton(
                         state = when (state.voice) {
-                            VoiceState.Listening -> VoiceButtonState.LISTENING
-                            VoiceState.Thinking -> VoiceButtonState.THINKING
+                            is VoiceState.Listening -> VoiceButtonState.LISTENING
+                            is VoiceState.Thinking, is VoiceState.Preparing -> VoiceButtonState.THINKING
                             else -> VoiceButtonState.IDLE
                         },
                         contentDescription = stringResource(R.string.key_mic),
@@ -98,7 +112,6 @@ fun HomeScreen(
                             if (state.device == null) {
                                 onOpenDevices()
                             } else {
-                                viewModel.onListeningStarted()
                                 startVoice()
                             }
                         },
@@ -169,17 +182,26 @@ private fun VoiceStatus(state: HomeUiState) {
         VoiceState.Idle -> stringResource(
             if (state.device == null) R.string.home_link_tv_hint else R.string.home_tap_to_speak,
         )
-        VoiceState.Listening -> stringResource(R.string.home_listening)
-        VoiceState.Thinking -> stringResource(R.string.home_thinking)
+        is VoiceState.Preparing -> voice.progress
+            ?.let { stringResource(R.string.home_preparing_voice, (it * 100).toInt()) }
+            ?: stringResource(R.string.home_loading_voice)
+        // Show the words as they are recognized, so the user knows they are being heard.
+        is VoiceState.Listening -> voice.heard.ifEmpty { stringResource(R.string.home_listening) }
+        is VoiceState.Thinking -> "“${voice.transcript}”"
         is VoiceState.Executed -> ActionText.describe(resources, voice.plan)
         is VoiceState.NotUnderstood -> stringResource(R.string.home_not_understood, voice.transcript)
+        is VoiceState.AppUnavailable -> stringResource(R.string.home_app_unavailable, voice.app.displayName)
+        VoiceState.NotHeard -> stringResource(R.string.home_not_heard)
         VoiceState.SendFailed -> stringResource(R.string.action_failed)
+        VoiceState.MicDenied -> stringResource(R.string.home_mic_denied)
+        VoiceState.ModelUnavailable -> stringResource(R.string.home_voice_download_failed)
         VoiceState.Unavailable -> stringResource(R.string.home_voice_unavailable)
     }
     val color = when (state.voice) {
         is VoiceState.Executed -> MaterialTheme.colorScheme.secondary
-        is VoiceState.NotUnderstood, VoiceState.SendFailed, VoiceState.Unavailable -> MaterialTheme.colorScheme.error
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
+        is VoiceState.Listening, is VoiceState.Thinking -> MaterialTheme.colorScheme.onSurface
+        VoiceState.Idle, is VoiceState.Preparing -> MaterialTheme.colorScheme.onSurfaceVariant
+        else -> MaterialTheme.colorScheme.error
     }
     AnimatedContent(
         targetState = message,
