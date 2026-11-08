@@ -356,6 +356,7 @@ class AndroidTvController(
             "com.google.android.tvlauncher",
             "com.google.android.apps.tv.launcherx",
             "com.google.android.katniss",
+            "com.google.android.apps.tv.dreamx", // Ambient mode / screensaver
             "com.android.systemui",
             "com.google.android.tv.remote.service",
         )
