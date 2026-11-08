@@ -62,7 +62,12 @@ class DevicesViewModel(
         val savedHosts = saved.map { it.host }.toSet()
         DevicesUiState(
             saved = saved.sortedBy { it.name.lowercase() },
-            found = found.filterNot { it.id in savedIds || it.host in savedHosts }.sortedBy { it.name.lowercase() },
+            found = found
+                .filterNot { it.id in savedIds || it.host in savedHosts }
+                // An unidentified TV is often upgraded by a later strategy; only show it as
+                // unsupported once the scan is over, so a usable TV never looks disabled.
+                .filter { it.brand.isSupported || !isScanning }
+                .sortedBy { it.name.lowercase() },
             activeId = active?.id,
             activeConnection = connection,
             scanning = isScanning,
