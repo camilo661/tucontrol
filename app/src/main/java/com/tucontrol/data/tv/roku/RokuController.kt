@@ -119,6 +119,7 @@ class RokuController(
             RemoteKey.REWIND to "Rev",
             RemoteKey.FAST_FORWARD to "Fwd",
             RemoteKey.INFO to "Info",
+            RemoteKey.SEARCH to "Search",
         )
 
         val APP_IDS = mapOf(

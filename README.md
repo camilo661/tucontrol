@@ -79,6 +79,15 @@ Requirements: Android Studio (latest), JDK 17+, a Wear OS 3+ watch (API 30+) on 
 
 > **Production note:** a key bundled in an APK can be extracted. For a public release, route Claude requests through your own backend and keep the API key server-side.
 
+### Testing against a real TV
+
+Debug builds include a test hook that runs a phrase exactly as if it had been spoken (planner + execution), and log what the TV confirms (foreground app, volume):
+
+```bash
+adb shell am broadcast -a com.tucontrol.debug.COMMAND -p com.tucontrol.app --es text "'sube el volumen 2'"
+adb logcat -s TuControlTest AndroidTv
+```
+
 ## Usage
 
 1. Open **Televisores**: TVs on your network appear automatically. Tap one to link it.
@@ -89,6 +98,7 @@ Requirements: Android Studio (latest), JDK 17+, a Wear OS 3+ watch (API 30+) on 
    - "Abre YouTube y luego sube el volumen"
    - "Pausa" · "Adelanta" · "Atrás" · "Inicio"
    - "Pon el canal 7" · "Busca Stranger Things en Netflix" · "Siguiente capítulo" · "Subtítulos"
+   - "Abre ajustes y prende el bluetooth" · "Sube el brillo" · "Cambia el modo de imagen" · "Abre Xuper TV"
 4. Open **Control** for the full remote; swipe between pages and turn the crown for volume.
 
 ## License

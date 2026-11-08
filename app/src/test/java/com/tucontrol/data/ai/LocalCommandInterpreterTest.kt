@@ -1,6 +1,7 @@
 package com.tucontrol.data.ai
 
 import com.tucontrol.domain.model.RemoteKey
+import com.tucontrol.domain.model.SettingsSection
 import com.tucontrol.domain.model.StreamingApp
 import com.tucontrol.domain.model.TvAction
 import org.junit.Assert.assertEquals
@@ -168,5 +169,27 @@ class LocalCommandInterpreterTest {
         )
         // Its content cannot be searched through YouTube by mistake.
         assertTrue(interpreter.analyze("abre xuper tv y busca la casa de papel").plan.actions.none { it is TvAction.Search })
+    }
+
+    @Test
+    fun `everyday settings requests`() {
+        assertEquals(listOf(TvAction.OpenSettings(SettingsSection.BLUETOOTH)), actions("Abre ajustes y prende el bluetooth"))
+        assertEquals(listOf(TvAction.Press(RemoteKey.SETTINGS)), actions("abre los ajustes"))
+        assertEquals(listOf(TvAction.Press(RemoteKey.SETTINGS)), actions("entra a configuración"))
+        assertEquals(listOf(TvAction.OpenSettings(SettingsSection.NETWORK)), actions("quiero ver el wifi"))
+        assertEquals(listOf(TvAction.OpenSettings(SettingsSection.PICTURE)), actions("cambia el modo de imagen"))
+        assertEquals(listOf(TvAction.OpenSettings(SettingsSection.PICTURE)), actions("pon el modo cine"))
+        assertEquals(listOf(TvAction.Press(RemoteKey.BRIGHTNESS_UP, 2)), actions("sube el brillo"))
+        assertEquals(listOf(TvAction.Press(RemoteKey.BRIGHTNESS_DOWN, 4)), actions("baja el brillo 4"))
+    }
+
+    @Test
+    fun `power only switches the TV itself`() {
+        listOf("prende la tele", "apaga el televisor", "enciende la tv por favor", "apágala").forEach { phrase ->
+            assertEquals(phrase, listOf(TvAction.Press(RemoteKey.POWER)), actions(phrase))
+        }
+        listOf("prende el bluetooth", "apaga la luz", "enciende el wifi").forEach { phrase ->
+            assertTrue(phrase, actions(phrase).none { it == TvAction.Press(RemoteKey.POWER) })
+        }
     }
 }

@@ -122,6 +122,9 @@ class ClaudeCommandInterpreter(apiKey: String) : CommandInterpreter {
               videos when no app is named.
             - Volume changes without an explicit amount mean 3 presses; "un poco" 2; "mucho" 6.
             - "apaga" / "enciende" / "prende" the TV all map to POWER.
+            - "ajustes"/"configuración" → SETTINGS. Brightness → BRIGHTNESS_UP/BRIGHTNESS_DOWN.
+              "apaga/prende" means POWER only when it refers to the TV itself ("la tele"), never
+              for other things ("prende el bluetooth").
             - "siguiente capítulo/canción" → NEXT; "anterior" media → PREVIOUS; "subtítulos" →
               CAPTIONS; "información" → INFO; "guía" → GUIDE; "ajustes/configuración" → SETTINGS.
             - Navigation words (arriba, abajo, izquierda, derecha, aceptar, atrás) map to the

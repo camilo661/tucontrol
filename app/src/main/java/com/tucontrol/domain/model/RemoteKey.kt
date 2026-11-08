@@ -30,6 +30,8 @@ enum class RemoteKey {
     CAPTIONS,
     SETTINGS,
     SEARCH,
+    BRIGHTNESS_UP,
+    BRIGHTNESS_DOWN,
     NUM_0,
     NUM_1,
     NUM_2,

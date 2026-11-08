@@ -2,6 +2,7 @@ package com.tucontrol.data.ai
 
 import com.tucontrol.domain.model.CommandPlan
 import com.tucontrol.domain.model.RemoteKey
+import com.tucontrol.domain.model.SettingsSection
 import com.tucontrol.domain.model.StreamingApp
 import com.tucontrol.domain.model.TvAction
 import com.tucontrol.domain.repository.CommandInterpreter
@@ -40,8 +41,14 @@ class LocalCommandInterpreter : CommandInterpreter {
             steps += Step(clause, parseClause(clause, context, inOtherApp, previous?.actions?.lastOrNull()), context, inOtherApp)
         }
         val unmatched = steps.count { it.actions.isEmpty() || it.isOpenEnded }
-        return Result(CommandPlan(steps.flatMap { it.actions }), unmatched)
+        return Result(CommandPlan(collapseSettings(steps.flatMap { it.actions })), unmatched)
     }
+
+    /** "abre ajustes y prende el bluetooth": opening a section already opens the settings. */
+    private fun collapseSettings(actions: List<TvAction>): List<TvAction> =
+        actions.filterIndexed { index, action ->
+            !(action == TvAction.Press(RemoteKey.SETTINGS) && actions.getOrNull(index + 1) is TvAction.OpenSettings)
+        }
 
     /** One clause of the request and the actions planned for it. */
     private class Step(
@@ -139,13 +146,28 @@ class LocalCommandInterpreter : CommandInterpreter {
             return listOf(TvAction.TuneChannel(amount.coerceIn(1, TvAction.MAX_CHANNEL)))
         }
 
+        // TV settings in everyday words: "sube el brillo", "prende el bluetooth", "modo cine".
+        if (has("brillo")) {
+            return listOf(
+                when {
+                    increase -> TvAction.Press(RemoteKey.BRIGHTNESS_UP, (amount ?: DEFAULT_STEP).coerceIn(1, TvAction.MAX_REPEAT))
+                    decrease -> TvAction.Press(RemoteKey.BRIGHTNESS_DOWN, (amount ?: DEFAULT_STEP).coerceIn(1, TvAction.MAX_REPEAT))
+                    else -> TvAction.OpenSettings(SettingsSection.PICTURE)
+                },
+            )
+        }
+        SETTINGS_SECTIONS.firstOrNull { (terms, _) -> has(*terms) }?.let { (_, section) ->
+            return listOf(TvAction.OpenSettings(section))
+        }
+
         val key: RemoteKey? = when {
             has("siguiente capitulo", "siguiente episodio", "siguiente cancion", "proximo capitulo", "proxima cancion") -> RemoteKey.NEXT
             has("capitulo anterior", "episodio anterior", "cancion anterior") -> RemoteKey.PREVIOUS
             has("subtitulos", "subtitulo") -> RemoteKey.CAPTIONS
             has("informacion", "info") -> RemoteKey.INFO
             has("guia", "programacion") -> RemoteKey.GUIDE
-            has("ajustes", "configuracion") -> RemoteKey.SETTINGS
+            has("ajustes", "ajuste", "configuracion", "configuraciones", "configurar", "opciones del tv", "opciones de la tele") ->
+                RemoteKey.SETTINGS
             has("busqueda", "buscador", "lupa") -> RemoteKey.SEARCH
             has("silencio", "silencia", "silenciar", "mute", "quita el sonido", "apaga el sonido", "activa el sonido") -> RemoteKey.MUTE
             isVolume && increase -> RemoteKey.VOLUME_UP
@@ -154,7 +176,8 @@ class LocalCommandInterpreter : CommandInterpreter {
             has("mas bajo", "mas despacio") -> RemoteKey.VOLUME_DOWN
             isChannel && decrease -> RemoteKey.CHANNEL_DOWN
             isChannel -> RemoteKey.CHANNEL_UP
-            has("apaga", "apagar", "apagala", "enciende", "encender", "enciendela", "prende", "prender") -> RemoteKey.POWER
+            // Only the TV itself: "apaga la luz" or "prende el aire" must never switch the TV off.
+            has(*POWER_VERBS) && words.all { it in POWER_VERBS || it in POWER_TARGET_WORDS } -> RemoteKey.POWER
             has("pausa", "pausar", "pausalo", "pausala") -> RemoteKey.PAUSE
             has("reproduce", "reproducir", "play", "continua", "reanuda", "sigue") -> RemoteKey.PLAY
             has("deten", "detener", "stop") -> RemoteKey.STOP
@@ -203,6 +226,28 @@ class LocalCommandInterpreter : CommandInterpreter {
 
     private companion object {
         const val DEFAULT_VOLUME_STEP = 3
+        const val DEFAULT_STEP = 2
+
+        val POWER_VERBS = arrayOf(
+            "apaga", "apagar", "apagala", "apagalo", "enciende", "encender", "enciendela", "enciendelo",
+            "prende", "prender", "prendela", "prendelo",
+        )
+        val POWER_TARGET_WORDS = setOf(
+            "la", "el", "mi", "tele", "televisor", "television", "tv", "pantalla", "por", "favor", "porfa", "ya", "ahora",
+        )
+
+        /** Spoken terms for each settings area. */
+        val SETTINGS_SECTIONS = listOf(
+            arrayOf("bluetooth", "blutu", "blutooth", "bluetuth", "audifonos", "auriculares", "parlante", "bocina") to
+                SettingsSection.BLUETOOTH,
+            arrayOf("wifi", "wi fi", "wifai", "internet", "red", "redes", "conexion a internet") to SettingsSection.NETWORK,
+            arrayOf(
+                "modo de imagen", "imagen", "modo cine", "modo pelicula", "modo deportes", "modo deporte", "modo juego",
+                "modo vivido", "modo estandar", "contraste", "nitidez", "colores", "color de la pantalla",
+            ) to SettingsSection.PICTURE,
+            arrayOf("modo de sonido", "ecualizador", "sonido envolvente", "graves", "agudos", "salida de audio") to
+                SettingsSection.SOUND,
+        )
 
         val DIACRITICS = Regex("\\p{Mn}+")
         val PUNCTUATION = Regex("[^a-z0-9, ]")
@@ -237,7 +282,8 @@ class LocalCommandInterpreter : CommandInterpreter {
 
         /** Things "abre …" can mean on the TV itself rather than an app. */
         val TV_FUNCTION = Regex(
-            "^(?:ajustes|configuracion|busqueda|buscador|lupa|menu|opciones|inicio|pantalla principal|guia|" +
+            "^(?:ajustes|ajuste|configuracion|configuraciones|busqueda|buscador|lupa|menu|opciones|inicio|pantalla principal|guia|" +
+                "bluetooth|wifi|internet|red|redes|brillo|imagen|modo|sonido|ecualizador|" +
                 "programacion|entrada|fuente|hdmi|subtitulos|informacion|info|canal)\\b",
         )
 
@@ -260,7 +306,8 @@ class LocalCommandInterpreter : CommandInterpreter {
 
         /** Words that mean a control request, not content ("pon pausa", "pon el canal 7"). */
         val CONTROL_WORDS = Regex(
-            "\\b(?:canal|volumen|pausa|silencio|subtitulos|play|inicio|menu|entrada|hdmi|ajustes|" +
+            "\\b(?:canal|volumen|pausa|silencio|subtitulos|play|inicio|menu|entrada|hdmi|ajustes|configuracion|" +
+                "modo|imagen|brillo|bluetooth|wifi|internet|ecualizador|" +
                 "atras|arriba|abajo|izquierda|derecha|siguiente|anterior|informacion|guia)\\b",
         )
         val PLAY_RESULT_WORDS = arrayOf(

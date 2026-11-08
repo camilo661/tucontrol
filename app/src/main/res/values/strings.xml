@@ -108,6 +108,12 @@
     <string name="action_guide">Guía</string>
     <string name="action_captions">Subtítulos</string>
     <string name="action_settings">Ajustes del TV</string>
+    <string name="action_settings_picture">Ajustes de imagen · di “baja” y “selecciona”</string>
+    <string name="action_settings_sound">Ajustes de sonido · di “baja” y “selecciona”</string>
+    <string name="action_settings_network">Ajustes de Wi‑Fi · di “baja” y “selecciona”</string>
+    <string name="action_settings_bluetooth">Ajustes de Bluetooth · di “baja” y “selecciona”</string>
+    <string name="action_brightness_up">Brillo +%1$d</string>
+    <string name="action_brightness_down">Brillo −%1$d</string>
     <string name="action_open_search">Abriendo la búsqueda</string>
     <string name="action_number">Número %1$s</string>
     <string name="action_tune_channel">Canal %1$d</string>

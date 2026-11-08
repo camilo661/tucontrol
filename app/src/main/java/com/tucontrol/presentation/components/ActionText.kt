@@ -6,6 +6,7 @@ import com.tucontrol.domain.model.CommandPlan
 import com.tucontrol.domain.model.ConnectionError
 import com.tucontrol.domain.model.ConnectionState
 import com.tucontrol.domain.model.RemoteKey
+import com.tucontrol.domain.model.SettingsSection
 import com.tucontrol.domain.model.TvAction
 
 /** User-facing (Spanish) descriptions, always sourced from string resources. */
@@ -31,6 +32,15 @@ object ActionText {
     private fun describe(resources: Resources, action: TvAction): String = when (action) {
         is TvAction.LaunchApp -> resources.getString(R.string.action_open_app, action.app.displayName)
         is TvAction.OpenApp -> resources.getString(R.string.action_open_app, appName(action.name))
+        is TvAction.OpenSettings -> resources.getString(
+            when (action.section) {
+                SettingsSection.GENERAL -> R.string.action_settings
+                SettingsSection.PICTURE -> R.string.action_settings_picture
+                SettingsSection.SOUND -> R.string.action_settings_sound
+                SettingsSection.NETWORK -> R.string.action_settings_network
+                SettingsSection.BLUETOOTH -> R.string.action_settings_bluetooth
+            },
+        )
         is TvAction.TuneChannel -> resources.getString(R.string.action_tune_channel, action.number)
         is TvAction.Search -> action.app
             ?.let { resources.getString(R.string.action_search_in, action.query, it.displayName) }
@@ -60,6 +70,8 @@ object ActionText {
             RemoteKey.CAPTIONS -> resources.getString(R.string.action_captions)
             RemoteKey.SETTINGS -> resources.getString(R.string.action_settings)
             RemoteKey.SEARCH -> resources.getString(R.string.action_open_search)
+            RemoteKey.BRIGHTNESS_UP -> resources.getString(R.string.action_brightness_up, action.times)
+            RemoteKey.BRIGHTNESS_DOWN -> resources.getString(R.string.action_brightness_down, action.times)
             RemoteKey.NUM_0, RemoteKey.NUM_1, RemoteKey.NUM_2, RemoteKey.NUM_3, RemoteKey.NUM_4,
             RemoteKey.NUM_5, RemoteKey.NUM_6, RemoteKey.NUM_7, RemoteKey.NUM_8, RemoteKey.NUM_9,
             -> resources.getString(R.string.action_number, action.key.name.removePrefix("NUM_"))

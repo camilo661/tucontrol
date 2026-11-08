@@ -161,6 +161,7 @@ class SamsungTizenController(
             RemoteKey.REWIND to "KEY_REWIND",
             RemoteKey.FAST_FORWARD to "KEY_FF",
             RemoteKey.INFO to "KEY_INFO",
+            RemoteKey.SETTINGS to "KEY_MENU",
             RemoteKey.GUIDE to "KEY_GUIDE",
             RemoteKey.CAPTIONS to "KEY_CAPTION",
             *RemoteKey.entries.filter { it.name.startsWith("NUM_") }

@@ -204,6 +204,7 @@ class RemoteSession(
                     }
                     is TvAction.LaunchApp -> active.launch(action.app)
                     is TvAction.OpenApp -> AppNames.find(action.name, active.installedApps())?.let { active.open(it) }
+                    is TvAction.OpenSettings -> active.openSettings(action.section)
                     is TvAction.TuneChannel -> RemoteKey.digitsOf(action.number).forEach { digit ->
                         active.press(digit)
                         delay(REPEAT_DELAY_MS)

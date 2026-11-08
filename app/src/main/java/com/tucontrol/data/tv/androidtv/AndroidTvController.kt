@@ -267,6 +267,10 @@ class AndroidTvController(
                         sendRemote { message(REMOTE_PING_RESPONSE) { int(1, value) } }
                     }
                     message.has(REMOTE_START) -> ready.complete(Unit)
+                    message.has(REMOTE_SET_VOLUME_LEVEL) && BuildConfig.DEBUG -> {
+                        val volume = message.message(REMOTE_SET_VOLUME_LEVEL)
+                        Log.d(TAG, "Volume on ${device.name}: ${volume?.long(7)}/${volume?.long(6)} muted=${volume?.long(8) == 1L}")
+                    }
                     message.has(REMOTE_IME_KEY_INJECT) -> {
                         // The TV reports the app in the foreground; learn it to open it by name later.
                         message.message(REMOTE_IME_KEY_INJECT)?.message(1)?.string(APP_PACKAGE)?.let { onForegroundApp(it) }
@@ -342,6 +346,7 @@ class AndroidTvController(
         const val REMOTE_KEY_INJECT = 10
         const val REMOTE_IME_KEY_INJECT = 20
         const val REMOTE_START = 40
+        const val REMOTE_SET_VOLUME_LEVEL = 50
 
         /** RemoteAppInfo.app_package inside RemoteImeKeyInject.app_info. */
         const val APP_PACKAGE = 12
@@ -415,6 +420,8 @@ class AndroidTvController(
             RemoteKey.CAPTIONS to 175,
             RemoteKey.SETTINGS to 176,
             RemoteKey.SEARCH to 84,
+            RemoteKey.BRIGHTNESS_DOWN to 220,
+            RemoteKey.BRIGHTNESS_UP to 221,
             // KEYCODE_0..KEYCODE_9 are consecutive (7..16).
             *RemoteKey.entries.filter { it.name.startsWith("NUM_") }
                 .map { it to 7 + it.name.removePrefix("NUM_").toInt() }

@@ -17,6 +17,9 @@ sealed interface TvAction {
         }
     }
 
+    /** Opens the TV's settings, at [section] where the platform allows it. */
+    data class OpenSettings(val section: SettingsSection = SettingsSection.GENERAL) : TvAction
+
     /** Tunes a channel by number ("pon el canal 7"), typed on the number keys. */
     data class TuneChannel(val number: Int) : TvAction {
         init {

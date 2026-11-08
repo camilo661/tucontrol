@@ -3,6 +3,7 @@ package com.tucontrol.domain.repository
 import com.tucontrol.domain.model.ConnectionState
 import com.tucontrol.domain.model.InstalledApp
 import com.tucontrol.domain.model.RemoteKey
+import com.tucontrol.domain.model.SettingsSection
 import com.tucontrol.domain.model.StreamingApp
 import com.tucontrol.domain.model.TvDevice
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +32,12 @@ interface TvController {
     }
 
     suspend fun disconnect()
+
+    /**
+     * Opens the TV settings. Most platforms expose no deep links into them, so the default is
+     * the settings key; the user continues by voice ("baja", "selecciona").
+     */
+    suspend fun openSettings(section: SettingsSection) = press(RemoteKey.SETTINGS)
 
     /** Whether [installedApps] is the TV's full list (otherwise apps are learned as they are used). */
     val listsAllApps: Boolean get() = false
