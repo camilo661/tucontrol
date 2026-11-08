@@ -34,6 +34,9 @@ sealed interface VoiceState {
     /** The microphone is open; [heard] is the live transcript. */
     data class Listening(val heard: String = "") : VoiceState
     data class Thinking(val transcript: String) : VoiceState
+
+    /** Executing a multi-step plan on its own; [step] is the action running now (0-based). */
+    data class Running(val plan: CommandPlan, val step: Int) : VoiceState
     data class Executed(val plan: CommandPlan) : VoiceState
     data class NotUnderstood(val transcript: String) : VoiceState
     data class AppUnavailable(val app: StreamingApp) : VoiceState
@@ -43,7 +46,7 @@ sealed interface VoiceState {
     data object ModelUnavailable : VoiceState
     data object Unavailable : VoiceState
 
-    val isActive: Boolean get() = this is Preparing || this is Listening || this is Thinking
+    val isActive: Boolean get() = this is Preparing || this is Listening || this is Thinking || this is Running
 }
 
 data class HomeUiState(
@@ -120,7 +123,8 @@ class HomeViewModel(
         val outcome = when {
             plan.isEmpty -> VoiceState.NotUnderstood(transcript)
             missingApp != null -> VoiceState.AppUnavailable(missingApp)
-            session.execute(plan) -> VoiceState.Executed(plan)
+            session.execute(plan) { step -> if (plan.actions.size > 1) voice.value = VoiceState.Running(plan, step) } ->
+                VoiceState.Executed(plan)
             else -> VoiceState.SendFailed
         }
         show(outcome)

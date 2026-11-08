@@ -103,7 +103,7 @@ fun HomeScreen(
                     VoiceButton(
                         state = when (state.voice) {
                             is VoiceState.Listening -> VoiceButtonState.LISTENING
-                            is VoiceState.Thinking, is VoiceState.Preparing -> VoiceButtonState.THINKING
+                            is VoiceState.Thinking, is VoiceState.Preparing, is VoiceState.Running -> VoiceButtonState.THINKING
                             else -> VoiceButtonState.IDLE
                         },
                         contentDescription = stringResource(R.string.key_mic),
@@ -188,6 +188,12 @@ private fun VoiceStatus(state: HomeUiState) {
         // Show the words as they are recognized, so the user knows they are being heard.
         is VoiceState.Listening -> voice.heard.ifEmpty { stringResource(R.string.home_listening) }
         is VoiceState.Thinking -> "“${voice.transcript}”"
+        is VoiceState.Running -> stringResource(
+            R.string.home_running_step,
+            voice.step + 1,
+            voice.plan.actions.size,
+            ActionText.describeStep(resources, voice.plan, voice.step),
+        )
         is VoiceState.Executed -> ActionText.describe(resources, voice.plan)
         is VoiceState.NotUnderstood -> stringResource(R.string.home_not_understood, voice.transcript)
         is VoiceState.AppUnavailable -> stringResource(R.string.home_app_unavailable, voice.app.displayName)
@@ -199,7 +205,7 @@ private fun VoiceStatus(state: HomeUiState) {
     }
     val color = when (state.voice) {
         is VoiceState.Executed -> MaterialTheme.colorScheme.secondary
-        is VoiceState.Listening, is VoiceState.Thinking -> MaterialTheme.colorScheme.onSurface
+        is VoiceState.Listening, is VoiceState.Thinking, is VoiceState.Running -> MaterialTheme.colorScheme.onSurface
         VoiceState.Idle, is VoiceState.Preparing -> MaterialTheme.colorScheme.onSurfaceVariant
         else -> MaterialTheme.colorScheme.error
     }

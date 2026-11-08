@@ -133,7 +133,6 @@ class RemoteSession(
 
     suspend fun press(key: RemoteKey): Boolean = execute(CommandPlan(listOf(TvAction.Press(key))))
 
-    /** Runs every action in order. Returns `false` when there is no usable connection. */
     /** Apps in [plan] that the connected TV platform cannot open. */
     fun unsupportedApps(plan: CommandPlan): List<StreamingApp> {
         val active = controller.value ?: return emptyList()
@@ -146,7 +145,11 @@ class RemoteSession(
         }.filterNot(active::canLaunch).distinct()
     }
 
-    suspend fun execute(plan: CommandPlan): Boolean = commandLock.withLock {
+    /**
+     * Runs every action in order, autonomously, reporting each step as it starts through
+     * [onStep] (0-based). Returns `false` when there is no usable connection.
+     */
+    suspend fun execute(plan: CommandPlan, onStep: (Int) -> Unit = {}): Boolean = commandLock.withLock {
         val active = controller.value ?: return false
         if (active.state.value != ConnectionState.Connected) {
             if (wifi.acquire() == null) return false
@@ -156,10 +159,16 @@ class RemoteSession(
         try {
             plan.actions.forEachIndexed { step, action ->
                 if (step > 0) {
-                    // Apps need a moment to open before they react to further keys.
-                    val opensApp = plan.actions[step - 1].let { it is TvAction.LaunchApp || it is TvAction.Search }
-                    delay(if (opensApp) APP_OPEN_DELAY_MS else STEP_DELAY_MS)
+                    // Apps and search results need a moment to load before they react to keys.
+                    delay(
+                        when (plan.actions[step - 1]) {
+                            is TvAction.Search -> SEARCH_RESULTS_DELAY_MS
+                            is TvAction.LaunchApp -> APP_OPEN_DELAY_MS
+                            else -> STEP_DELAY_MS
+                        },
+                    )
                 }
+                onStep(step)
                 when (action) {
                     is TvAction.Press -> repeat(action.times) { index ->
                         if (index > 0) delay(REPEAT_DELAY_MS)
@@ -185,5 +194,6 @@ class RemoteSession(
         const val REPEAT_DELAY_MS = 120L
         const val STEP_DELAY_MS = 400L
         const val APP_OPEN_DELAY_MS = 3_000L
+        const val SEARCH_RESULTS_DELAY_MS = 4_500L
     }
 }

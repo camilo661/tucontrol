@@ -8,11 +8,12 @@ import com.tucontrol.domain.repository.CommandInterpreter
 import java.text.Normalizer
 
 /**
- * Offline, rule-based interpreter for common Spanish TV commands.
+ * TuControl's built-in assistant: a free, offline planner for Spanish TV requests.
  *
- * It answers instantly and without network, so it handles everyday phrases
- * ("sube el volumen 5", "abre Netflix", "apaga la tele") while the AI interpreter
- * covers anything more conversational.
+ * It splits a request into ordered steps and carries context between them, so
+ * "entra a YouTube y busca Despacito y ponla" becomes open YouTube → search → play the
+ * first result. It answers instantly with no network or API key; the optional AI
+ * interpreter only complements it for free-form conversation.
  */
 class LocalCommandInterpreter : CommandInterpreter {
 
@@ -23,26 +24,60 @@ class LocalCommandInterpreter : CommandInterpreter {
     override suspend fun interpret(phrase: String): CommandPlan = analyze(phrase).plan
 
     fun analyze(phrase: String): Result {
-        val clauses = normalize(phrase)
-            .split(CLAUSE_SEPARATORS)
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-
-        var unmatched = 0
-        val actions = clauses.flatMap { clause ->
-            parseClause(clause).also { if (it.isEmpty() || it.isOpenEndedSearch()) unmatched++ }
+        val steps = mutableListOf<Step>()
+        for ((separator, clause) in splitClauses(normalize(phrase))) {
+            val previous = steps.lastOrNull()
+            // A separator inside a title ("busca tom y jerry") splits it; glue the piece back.
+            if (previous?.isContentRequest == true && !COMMAND_START.containsMatchIn(clause)) {
+                steps.removeAt(steps.lastIndex)
+                val merged = previous.clause + separator + clause
+                steps += Step(merged, parseClause(merged, previous.context, steps.lastOrNull()?.actions?.lastOrNull()), previous.context)
+                continue
+            }
+            val context = previous?.contextAfter
+            steps += Step(clause, parseClause(clause, context, previous?.actions?.lastOrNull()), context)
         }
-        return Result(CommandPlan(actions), unmatched)
+        val unmatched = steps.count { it.actions.isEmpty() || it.isOpenEnded }
+        return Result(CommandPlan(steps.flatMap { it.actions }), unmatched)
     }
 
-    /**
-     * A search with no app ("busca la película de anoche") is a guess offline: it runs when no
-     * AI is available, but is reported as not fully understood so the AI gets the first try.
-     */
-    private fun List<TvAction>.isOpenEndedSearch(): Boolean =
-        singleOrNull().let { it is TvAction.Search && it.app == null }
+    /** One clause of the request and the actions planned for it. */
+    private class Step(val clause: String, val actions: List<TvAction>, val context: StreamingApp?) {
+        val isContentRequest: Boolean get() = actions.any { it is TvAction.Search }
 
-    private fun parseClause(clause: String): List<TvAction> {
+        /**
+         * Content requested without naming an app or being in one ("pon algo relajante") is a
+         * best guess offline: it runs as planned, but the optional AI gets the first try.
+         */
+        val isOpenEnded: Boolean
+            get() = isContentRequest && context == null && APP_ALIASES.keys.none { alias -> alias in clause }
+
+        /** The app the TV is in after this step, used by later steps ("…y busca X"). */
+        val contextAfter: StreamingApp?
+            get() = actions.asReversed().firstNotNullOfOrNull {
+                when (it) {
+                    is TvAction.LaunchApp -> it.app
+                    is TvAction.Search -> it.app
+                    else -> null
+                }
+            } ?: context
+    }
+
+    /** Splits on "y", "luego", "después", commas…, keeping each clause's separator. */
+    private fun splitClauses(text: String): List<Pair<String, String>> {
+        val result = mutableListOf<Pair<String, String>>()
+        var start = 0
+        var separator = ""
+        CLAUSE_SEPARATORS.findAll(text).forEach { match ->
+            text.substring(start, match.range.first).trim().takeIf { it.isNotEmpty() }?.let { result += separator to it }
+            separator = " ${match.value.trim()} ".replace(" , ", ", ")
+            start = match.range.last + 1
+        }
+        text.substring(start).trim().takeIf { it.isNotEmpty() }?.let { result += separator to it }
+        return result
+    }
+
+    private fun parseClause(clause: String, context: StreamingApp?, previous: TvAction?): List<TvAction> {
         val words = clause.split(' ').filter { it.isNotEmpty() }.toSet()
         fun has(vararg terms: String) = terms.any { term ->
             if (' ' in term) term in clause else term in words
@@ -50,13 +85,23 @@ class LocalCommandInterpreter : CommandInterpreter {
         val amount = extractNumber(words)
         val app = APP_ALIASES.entries.firstOrNull { (alias, _) -> has(alias) }?.value
 
-        // "busca stranger things en netflix" → search, scoped to the app when one is named.
+        // "busca stranger things en netflix" → search, in the named app or the one already open.
         SEARCH_PREFIX.find(clause)?.let { match ->
-            val query = clause.substring(match.range.last + 1)
-                .replace(APP_SUFFIX, "")
-                .trim()
-            return if (query.isNotEmpty()) listOf(TvAction.Search(query, app)) else emptyList()
+            val query = contentAfter(clause, match.range.last + 1)
+            return if (query.isNotEmpty()) listOf(TvAction.Search(query, app ?: context)) else emptyList()
         }
+
+        // "pon despacito en youtube" → search, then play the first result.
+        PLAY_PREFIX.find(clause)?.let { match ->
+            val content = contentAfter(clause, match.range.last + 1)
+            val isContent = content.isNotEmpty() && !APP_NAME.matches(content) && !CONTROL_WORDS.containsMatchIn(content)
+            if (isContent) {
+                return listOf(TvAction.Search(content, app ?: context ?: StreamingApp.YOUTUBE), TvAction.Press(RemoteKey.OK))
+            }
+        }
+
+        // "…y ponla" right after a search plays the highlighted result.
+        if (previous is TvAction.Search && has(*PLAY_RESULT_WORDS)) return listOf(TvAction.Press(RemoteKey.OK))
 
         app?.let { return listOf(TvAction.LaunchApp(it)) }
 
@@ -113,6 +158,10 @@ class LocalCommandInterpreter : CommandInterpreter {
         return listOf(TvAction.Press(key, times))
     }
 
+    /** The requested content: the text after the verb, without fillers or a trailing "en <app>". */
+    private fun contentAfter(clause: String, index: Int): String =
+        clause.substring(index).replace(APP_SUFFIX, "").trim().replace(CONTENT_FILLER, "").trim()
+
     private fun extractNumber(words: Set<String>): Int? =
         words.firstNotNullOfOrNull { word -> word.toIntOrNull() ?: NUMBER_WORDS[word] }
 
@@ -151,6 +200,41 @@ class LocalCommandInterpreter : CommandInterpreter {
         )
 
         val SEARCH_PREFIX = Regex("^(?:(?:por favor|quiero|puedes)\\s+)?(?:busca|buscar|buscame|encuentra)\\b")
+        val PLAY_PREFIX = Regex(
+            "^(?:(?:por favor|quiero|puedes)\\s+)?(?:ponme|pon|poner|reproduce|reproducir|reproduceme|toca|tocame|" +
+                "escucha|escuchar|oir|ver|mira|mirar|muestrame)\\b",
+        )
+        /** "la canción despacito" → "despacito", "música de bad bunny" → "bad bunny". */
+        val CONTENT_FILLER = Regex(
+            "^(?:(?:la|una|el|un|unas|unos)\\s+)?(?:cancion|canciones|tema|video|videos|pelicula|serie|capitulo)\\s+" +
+                "(?:de\\s+)?|^musica de\\s+",
+        )
+
+        /** Just an app's name ("disney plus", "la app de youtube"), not content to play. */
+        val APP_NAME = Regex(
+            "^(?:la\\s+)?(?:app|aplicacion)?\\s*(?:de\\s+)?(?:netflix|youtube|you tube|prime video|amazon|prime|" +
+                "disney|spotify|hbo max|hbo|max|apple tv|paramount|crunchyroll|pluto|plex|vix)" +
+                "(?:\\s+(?:plus|tv|video|max|prime))?$",
+        )
+
+        /** Words that mean a control request, not content ("pon pausa", "pon el canal 7"). */
+        val CONTROL_WORDS = Regex(
+            "\\b(?:canal|volumen|pausa|silencio|subtitulos|play|inicio|menu|entrada|hdmi|ajustes|" +
+                "atras|arriba|abajo|izquierda|derecha|siguiente|anterior|informacion|guia)\\b",
+        )
+        val PLAY_RESULT_WORDS = arrayOf(
+            "ponla", "ponlo", "reproducela", "reproducelo", "dale play", "abrela", "abrelo", "el primero",
+            "la primera", "dale", "ponle play",
+        )
+
+        /** A clause that begins a new command rather than continuing a title. */
+        val COMMAND_START = Regex(
+            "^(?:sube|subir|subele|baja|bajar|bajale|abre|abrir|entra|entrar|ve|vete|busca|buscar|buscame|pon|ponme|" +
+                "ponla|ponlo|ponle|reproduce|reproducela|reproducelo|apaga|enciende|prende|pausa|silencia|cambia|" +
+                "regresa|vuelve|selecciona|dale|abrela|abrelo|el primero|la primera|toca|escucha|mira|quita|activa|" +
+                "adelanta|retrocede|deten|aumenta|disminuye|canal|volumen)\\b",
+        )
+
         val APP_SUFFIX = Regex("\\s+(?:en|por)\\s+(?:netflix|youtube|you tube|prime video|amazon|prime|disney|spotify|hbo max|hbo|max|apple tv|paramount|crunchyroll|pluto|plex|vix)\\b.*$")
 
         val NUMBER_WORDS = mapOf(

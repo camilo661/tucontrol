@@ -17,6 +17,7 @@
     <string name="home_not_heard">No te escuché, toca e intenta de nuevo</string>
     <string name="home_voice_download_failed">No se pudo descargar la voz. Revisa el Wi‑Fi</string>
     <string name="home_mic_denied">Permite el micrófono para hablar</string>
+    <string name="home_running_step">Paso %1$d de %2$d · %3$s</string>
     <string name="home_app_unavailable">%1$s no está disponible en este TV</string>
     <string name="home_remote">Control</string>
     <string name="home_devices">Televisores</string>
@@ -62,10 +63,10 @@
 
     <!-- Settings -->
     <string name="settings_title">Ajustes</string>
-    <string name="settings_ai">Asistente IA</string>
-    <string name="settings_ai_on">Claude interpreta tus frases</string>
-    <string name="settings_ai_off">Solo comandos básicos</string>
-    <string name="settings_ai_missing_key">Requiere clave de API</string>
+    <string name="settings_ai">IA avanzada (Claude)</string>
+    <string name="settings_ai_on">Opcional · entiende conversación libre</string>
+    <string name="settings_ai_off">Usa el asistente gratuito</string>
+    <string name="settings_ai_missing_key">Opcional · requiere clave de pago</string>
     <string name="settings_haptics">Vibración</string>
     <string name="settings_sony_psk">Clave Sony</string>
     <string name="settings_version">Versión %1$s</string>
@@ -87,6 +88,8 @@
     <string name="action_channel_down">Canal −%1$d</string>
     <string name="action_navigate">Navegando</string>
     <string name="action_select">Seleccionado</string>
+    <string name="action_plan_done">Listo (%1$d pasos) · %2$s</string>
+    <string name="action_play_first_result">Reproduciendo el primer resultado</string>
     <string name="action_back">Atrás</string>
     <string name="action_home">Inicio</string>
     <string name="action_menu">Menú</string>

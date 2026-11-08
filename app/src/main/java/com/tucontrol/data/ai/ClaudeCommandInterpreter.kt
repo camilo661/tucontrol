@@ -116,6 +116,10 @@ class ClaudeCommandInterpreter(apiKey: String) : CommandInterpreter {
             - Infer intent: "no oigo nada" → volume up; "está muy alto" → volume down; "quiero ver
               una peli de Marvel en Disney" → search "Marvel" in DISNEY_PLUS; "pon música de Bad
               Bunny" → search "Bad Bunny" in SPOTIFY if music, otherwise YOUTUBE.
+            - Plan multi-step requests in execution order; the watch runs them on its own.
+              To play specific content ("pon Despacito", "entra a YouTube y pon X"), search it
+              and then press OK to play the first result. Default to YOUTUBE for songs and
+              videos when no app is named.
             - Volume changes without an explicit amount mean 3 presses; "un poco" 2; "mucho" 6.
             - "apaga" / "enciende" / "prende" the TV all map to POWER.
             - "siguiente capítulo/canción" → NEXT; "anterior" media → PREVIOUS; "subtítulos" →

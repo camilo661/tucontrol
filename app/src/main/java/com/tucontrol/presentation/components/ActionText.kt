@@ -11,8 +11,22 @@ import com.tucontrol.domain.model.TvAction
 /** User-facing (Spanish) descriptions, always sourced from string resources. */
 object ActionText {
 
-    fun describe(resources: Resources, plan: CommandPlan): String =
-        plan.actions.joinToString(" · ") { describe(resources, it) }
+    /** A plan's outcome: the action itself, or for multi-step plans the step it ended on. */
+    fun describe(resources: Resources, plan: CommandPlan): String {
+        val last = describeStep(resources, plan, plan.actions.lastIndex)
+        return if (plan.actions.size > 1) resources.getString(R.string.action_plan_done, plan.actions.size, last) else last
+    }
+
+    /** One step of [plan], worded for its context (OK after a search plays the result). */
+    fun describeStep(resources: Resources, plan: CommandPlan, index: Int): String {
+        val action = plan.actions[index]
+        val followsSearch = plan.actions.getOrNull(index - 1) is TvAction.Search
+        return if (action == TvAction.Press(RemoteKey.OK) && followsSearch) {
+            resources.getString(R.string.action_play_first_result)
+        } else {
+            describe(resources, action)
+        }
+    }
 
     private fun describe(resources: Resources, action: TvAction): String = when (action) {
         is TvAction.LaunchApp -> resources.getString(R.string.action_open_app, action.app.displayName)

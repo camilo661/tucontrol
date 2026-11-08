@@ -10,7 +10,8 @@ The UI is in Spanish; source code, identifiers and comments are in English.
 
 | | |
 |---|---|
-| 🎙️ **Voice + AI** | Tap and speak: words appear live and the command runs as soon as you stop talking. Uses the watch's speech service, or an offline Spanish model (Vosk, downloaded once) on watches without one. Simple commands are parsed offline; free-form requests ("no oigo nada", "quiero ver algo de Marvel") are interpreted by Claude (`claude-opus-5-5`) with a strict JSON schema. |
+| 🎙️ **Voice, free** | Tap and speak: words appear live and the request runs when you stop talking. Uses the watch's speech service, or an offline Spanish model (Vosk, downloaded once) on watches without one. |
+| 🧠 **Free step planner** | The built-in assistant (offline, no API key, no cost) splits a request into steps and runs them on its own, showing progress: *"entra a YouTube, busca Despacito y ponla"* → open YouTube → search → play the first result. Optionally, Claude (`claude-opus-5-5`, paid API key) can complement it for free-form conversation. |
 | 🧭 **Beyond buttons** | Tune channels by number, search content (YouTube, Netflix on Android TV; Roku universal search), open 12 streaming apps, media and menu keys. |
 | 📡 **Automatic discovery** | Finds TVs on the same Wi‑Fi network using SSDP/UPnP, DIAL and mDNS, plus a direct subnet sweep for routers that block multicast. TVs can also be added by IP address. |
 | 📺 **Multi-brand** | Samsung (Tizen), LG (webOS), Sony (Bravia), Roku, and Android TV / Google TV (Sony, TCL, Hisense, Philips, Xiaomi, Chromecast with Google TV…). |
@@ -62,11 +63,11 @@ CommandPlan ─► RemoteSession ─► TvController (brand protocol) ─► TV
 Requirements: Android Studio (latest), JDK 17+, a Wear OS 3+ watch (API 30+) on the same Wi‑Fi network as the TV.
 
 1. Clone the repository and open it in Android Studio.
-2. *(Optional, enables the AI assistant)* create `secrets.properties` in the project root:
+2. *(Optional, paid)* to let Claude complement the free built-in assistant, create `secrets.properties` in the project root:
    ```properties
    ANTHROPIC_API_KEY=sk-ant-...
    ```
-   The file is git-ignored. Without a key, TuControl still works with the offline command parser.
+   The file is git-ignored. Without a key, TuControl uses only its free offline assistant.
 3. Run the `app` configuration on a Wear OS device or emulator.
 
 > **Emulator:** the Wear OS emulator has no Wi‑Fi and sits behind NAT, so multicast discovery cannot see the LAN. Debug builds look for TVs from the development machine at build time and the emulator probes those addresses, so real TVs on your network still show up. If a TV was off when you built, rebuild.

@@ -5,6 +5,9 @@ import com.tucontrol.domain.repository.VoiceFailure
 import com.tucontrol.domain.repository.VoiceRecognizer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -40,7 +43,12 @@ class VoskVoiceRecognizer(private val models: VoskModelStore) : VoiceRecognizer 
             return@callbackFlow
         }
 
+        // Vosk closes a segment at every short pause. Multi-step requests ("entra a YouTube…
+        // y busca…") span several, so segments are joined until the user stays silent.
+        val segments = mutableListOf<String>()
         var heard = ""
+        var settle: Job? = null
+        fun transcript() = (segments + heard).filter { it.isNotEmpty() }.joinToString(" ")
         val recognizer = Recognizer(loaded, SAMPLE_RATE)
         val service = try {
             SpeechService(recognizer, SAMPLE_RATE)
@@ -56,25 +64,36 @@ class VoskVoiceRecognizer(private val models: VoskModelStore) : VoiceRecognizer 
                 override fun onPartialResult(hypothesis: String?) {
                     val text = field(hypothesis, "partial")
                     if (text.isNotEmpty() && text != heard) {
+                        settle?.cancel() // Still talking.
                         heard = text
-                        trySend(VoiceEvent.Partial(text))
+                        trySend(VoiceEvent.Partial(transcript()))
                     }
                 }
 
-                // Vosk reports a result at each pause; the first meaningful one is the command.
-                // Background noise is often decoded as a lone filler ("y", "eh"): keep listening.
                 override fun onResult(hypothesis: String?) {
                     val text = field(hypothesis, "text")
-                    if (isMeaningful(text)) finish(VoiceEvent.Final(text)) else heard = ""
+                    heard = ""
+                    // Background noise is often decoded as a lone filler ("y", "eh"): skip it.
+                    if (!isMeaningful(text)) return
+                    segments += text
+                    trySend(VoiceEvent.Partial(transcript()))
+                    settle?.cancel()
+                    settle = launch {
+                        delay(SETTLE_SILENCE_MS)
+                        finish(VoiceEvent.Final(transcript()))
+                    }
                 }
 
                 override fun onFinalResult(hypothesis: String?) {
-                    val text = field(hypothesis, "text").ifEmpty { heard }
-                    finish(if (isMeaningful(text)) VoiceEvent.Final(text) else VoiceEvent.Failed(VoiceFailure.NO_SPEECH))
+                    field(hypothesis, "text").takeIf(::isMeaningful)?.let { segments += it }
+                    complete()
                 }
 
-                override fun onTimeout() {
-                    finish(if (isMeaningful(heard)) VoiceEvent.Final(heard) else VoiceEvent.Failed(VoiceFailure.NO_SPEECH))
+                override fun onTimeout() = complete()
+
+                private fun complete() {
+                    val text = transcript()
+                    finish(if (isMeaningful(text)) VoiceEvent.Final(text) else VoiceEvent.Failed(VoiceFailure.NO_SPEECH))
                 }
 
                 override fun onError(exception: Exception?) {
@@ -117,7 +136,10 @@ class VoskVoiceRecognizer(private val models: VoskModelStore) : VoiceRecognizer 
 
     private companion object {
         const val SAMPLE_RATE = 16_000f
-        const val LISTEN_TIMEOUT_MS = 8_000
+        const val LISTEN_TIMEOUT_MS = 12_000
         const val MIN_WORD_LENGTH = 3
+
+        /** Silence after a segment that means the request is complete. */
+        const val SETTLE_SILENCE_MS = 1_300L
     }
 }

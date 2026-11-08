@@ -62,11 +62,14 @@ class HybridCommandInterpreterTest {
     }
 
     @Test
-    fun `AI is skipped when disabled in settings`() = runTest {
+    fun `AI is skipped when disabled and the free assistant plans instead`() = runTest {
         val ai = CountingInterpreter { aiPlan }
         val hybrid = HybridCommandInterpreter(LocalCommandInterpreter(), ai, FakeSettings(aiEnabled = false))
 
-        assertEquals(CommandPlan.EMPTY, hybrid.interpret("pon algo de música relajante"))
+        val freePlan = CommandPlan(
+            listOf(TvAction.Search("algo de musica relajante", StreamingApp.YOUTUBE), TvAction.Press(RemoteKey.OK)),
+        )
+        assertEquals(freePlan, hybrid.interpret("pon algo de música relajante"))
         assertEquals(0, ai.calls)
     }
 }

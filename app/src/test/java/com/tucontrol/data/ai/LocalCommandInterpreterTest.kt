@@ -107,4 +107,46 @@ class LocalCommandInterpreterTest {
     fun `number keys spell each digit`() {
         assertEquals(listOf(RemoteKey.NUM_1, RemoteKey.NUM_0, RemoteKey.NUM_5), RemoteKey.digitsOf(105))
     }
+
+    @Test
+    fun `multi-step request is planned in order with app context`() {
+        assertEquals(
+            listOf(
+                TvAction.LaunchApp(StreamingApp.YOUTUBE),
+                TvAction.Search("despacito", StreamingApp.YOUTUBE),
+                TvAction.Press(RemoteKey.OK),
+            ),
+            actions("Entra a YouTube y busca la canción Despacito y ponla"),
+        )
+    }
+
+    @Test
+    fun `play requests search and play the first result`() {
+        val play = listOf(TvAction.Search("despacito", StreamingApp.YOUTUBE), TvAction.Press(RemoteKey.OK))
+        assertEquals(play, actions("Pon Despacito"))
+        assertEquals(play, actions("reproduce la canción despacito en YouTube"))
+        assertEquals(
+            listOf(TvAction.Search("bad bunny", StreamingApp.SPOTIFY), TvAction.Press(RemoteKey.OK)),
+            actions("pon música de Bad Bunny en Spotify"),
+        )
+    }
+
+    @Test
+    fun `titles containing y are not split into commands`() {
+        assertEquals(
+            listOf(TvAction.Search("tom y jerry", StreamingApp.YOUTUBE), TvAction.Press(RemoteKey.OK)),
+            actions("pon tom y jerry"),
+        )
+        assertEquals(
+            listOf(TvAction.Search("tom y jerry", StreamingApp.YOUTUBE), TvAction.Press(RemoteKey.VOLUME_UP, 3)),
+            actions("entra a youtube, busca tom y jerry y sube el volumen").drop(1),
+        )
+    }
+
+    @Test
+    fun `control phrases with play verbs stay controls`() {
+        assertEquals(listOf(TvAction.LaunchApp(StreamingApp.NETFLIX)), actions("pon Netflix"))
+        assertEquals(listOf(TvAction.TuneChannel(7)), actions("pon el canal 7"))
+        assertEquals(listOf(TvAction.Press(RemoteKey.PAUSE)), actions("pon pausa"))
+    }
 }
