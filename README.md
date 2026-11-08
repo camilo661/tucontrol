@@ -1,3 +1,5 @@
+<p align="center"><img src="app/src/main/res/drawable-nodpi/tucontrol_logo.png" width="160" alt="TuControl"></p>
+
 # TuControl
 
 **Control remoto universal por voz para Wear OS.** Habla con tu reloj y TuControl controla tu televisor por Wi‑Fi: *"sube el volumen 5"*, *"abre Netflix"*, *"apaga la tele"*.
@@ -107,6 +109,10 @@ On the TV: *Settings → System → About* → select *Android TV OS build* 7 ti
    - "Abre ajustes y prende el bluetooth" · "Sube el brillo" · "Cambia el modo de imagen" · "Abre Xuper TV"
 4. Open **Control** for the full remote; swipe between pages and turn the crown for volume.
 
+## Author
+
+Created by **Camilo Andrés Castro Acosta** ([@camilo661](https://github.com/camilo661)).
+
 ## License
 
-Copyright © 2026 camilo661. All rights reserved.
+Copyright © 2026 Camilo Andrés Castro Acosta. All rights reserved.

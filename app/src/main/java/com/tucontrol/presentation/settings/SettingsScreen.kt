@@ -3,6 +3,7 @@ package com.tucontrol.presentation.settings
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Vibration
@@ -27,9 +28,13 @@ import androidx.wear.compose.material3.Text
 import com.tucontrol.BuildConfig
 import com.tucontrol.R
 import com.tucontrol.presentation.common.rememberTextInputLauncher
+import com.tucontrol.presentation.welcome.AuthorCredit
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory)) {
+fun SettingsScreen(
+    onOpenGuide: () -> Unit,
+    viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory),
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberTransformingLazyColumnState()
     val editSonyKey = rememberTextInputLauncher(
@@ -80,6 +85,16 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel(factory = SettingsVi
                     secondaryLabel = { Text(state.settings.sonyPreSharedKey) },
                 )
             }
+            item {
+                Button(
+                    onClick = onOpenGuide,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.filledTonalButtonColors(),
+                    icon = { Icon(Icons.AutoMirrored.Rounded.HelpOutline, contentDescription = null) },
+                    label = { Text(stringResource(R.string.settings_guide)) },
+                )
+            }
+            item { AuthorCredit(Modifier.padding(top = 8.dp)) }
             item {
                 Text(
                     text = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME),

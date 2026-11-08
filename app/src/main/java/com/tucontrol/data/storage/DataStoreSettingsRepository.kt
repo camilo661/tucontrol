@@ -19,6 +19,7 @@ class DataStoreSettingsRepository(
             aiEnabled = prefs[AI_ENABLED] ?: true,
             hapticsEnabled = prefs[HAPTICS_ENABLED] ?: true,
             sonyPreSharedKey = prefs[SONY_PSK] ?: AppSettings.DEFAULT_SONY_PSK,
+            welcomeSeen = prefs[WELCOME_SEEN] ?: false,
         )
     }
 
@@ -34,9 +35,14 @@ class DataStoreSettingsRepository(
         store.edit { it[SONY_PSK] = key.trim() }
     }
 
+    override suspend fun setWelcomeSeen() {
+        store.edit { it[WELCOME_SEEN] = true }
+    }
+
     private companion object {
         val AI_ENABLED = booleanPreferencesKey("ai_enabled")
         val HAPTICS_ENABLED = booleanPreferencesKey("haptics_enabled")
         val SONY_PSK = stringPreferencesKey("sony_psk")
+        val WELCOME_SEEN = booleanPreferencesKey("welcome_seen")
     }
 }

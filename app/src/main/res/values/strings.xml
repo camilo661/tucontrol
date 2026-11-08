@@ -73,6 +73,17 @@
     <string name="settings_haptics">Vibración</string>
     <string name="settings_sony_psk">Clave Sony</string>
     <string name="settings_version">Versión %1$s</string>
+    <string name="settings_guide">Cómo usar TuControl</string>
+
+    <!-- Welcome guide -->
+    <string name="welcome_tagline">Tu control remoto por voz con IA</string>
+    <string name="welcome_step_network">Conecta el reloj y el TV a la misma red Wi‑Fi</string>
+    <string name="welcome_step_link">En Televisores elige tu TV y vincúlala: acepta en el TV o escribe el código</string>
+    <string name="welcome_step_voice">Toca el micrófono y habla: «sube el volumen», «abre YouTube y pon Despacito»</string>
+    <string name="welcome_step_remote">En Control usa la cruceta y gira la corona para el volumen</string>
+    <string name="welcome_step_agent">Android TV: activa Depuración por USB en el TV para que la IA vea la pantalla y haga cualquier petición</string>
+    <string name="welcome_start">Empezar</string>
+    <string name="credit_author">Creado por Camilo Andrés Castro Acosta</string>
 
     <!-- Connection status -->
     <string name="status_connected">Conectado</string>
