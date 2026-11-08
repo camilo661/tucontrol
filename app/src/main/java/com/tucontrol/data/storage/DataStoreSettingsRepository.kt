@@ -35,8 +35,8 @@ class DataStoreSettingsRepository(
         store.edit { it[SONY_PSK] = key.trim() }
     }
 
-    override suspend fun setWelcomeSeen() {
-        store.edit { it[WELCOME_SEEN] = true }
+    override suspend fun setWelcomeSeen(seen: Boolean) {
+        store.edit { it[WELCOME_SEEN] = seen }
     }
 
     private companion object {

@@ -19,7 +19,7 @@ class HybridCommandInterpreterTest {
         override suspend fun setAiEnabled(enabled: Boolean) = Unit
         override suspend fun setHapticsEnabled(enabled: Boolean) = Unit
         override suspend fun setSonyPreSharedKey(key: String) = Unit
-        override suspend fun setWelcomeSeen() = Unit
+        override suspend fun setWelcomeSeen(seen: Boolean) = Unit
     }
 
     private val aiPlan = CommandPlan(listOf(TvAction.LaunchApp(StreamingApp.SPOTIFY)))

@@ -19,5 +19,5 @@ interface SettingsRepository {
     suspend fun setAiEnabled(enabled: Boolean)
     suspend fun setHapticsEnabled(enabled: Boolean)
     suspend fun setSonyPreSharedKey(key: String)
-    suspend fun setWelcomeSeen()
+    suspend fun setWelcomeSeen(seen: Boolean = true)
 }

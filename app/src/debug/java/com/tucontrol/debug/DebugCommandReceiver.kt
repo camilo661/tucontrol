@@ -23,6 +23,18 @@ class DebugCommandReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val container = (context.applicationContext as TuControlApp).container
         val pending = goAsync()
+        // Show the first-run welcome guide again (`--ez reset_welcome true`).
+        if (intent.getBooleanExtra(EXTRA_RESET_WELCOME, false)) {
+            scope.launch {
+                try {
+                    container.settingsRepository.setWelcomeSeen(false)
+                    Log.d(TAG, "welcome guide reset")
+                } finally {
+                    pending.finish()
+                }
+            }
+            return
+        }
         // A raw 8 kHz PCM file in app storage: hand it to the TV's assistant as voice.
         intent.getStringExtra(EXTRA_VOICE_FILE)?.let { name ->
             scope.launch {
@@ -58,6 +70,7 @@ class DebugCommandReceiver : BroadcastReceiver() {
         const val TAG = "TuControlTest"
         const val EXTRA_TEXT = "text"
         const val EXTRA_VOICE_FILE = "voice"
+        const val EXTRA_RESET_WELCOME = "reset_welcome"
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     }
 }
