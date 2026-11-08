@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TuControl</string>
+
+    <!-- Home -->
+    <string name="home_tap_to_speak">Toca para hablar</string>
+    <string name="home_listening">Escuchando…</string>
+    <string name="home_thinking">Interpretando…</string>
+    <string name="home_no_tv">Sin TV conectado</string>
+    <string name="home_choose_tv">Elegir televisor</string>
+    <string name="home_voice_prompt">¿Qué quieres hacer?</string>
+    <string name="home_not_understood">No entendí: “%1$s”</string>
+    <string name="home_voice_unavailable">El reconocimiento de voz no está disponible</string>
+    <string name="home_remote">Control</string>
+    <string name="home_devices">Televisores</string>
+    <string name="home_settings">Ajustes</string>
+
+    <!-- Remote -->
+    <string name="remote_title">Control</string>
+    <string name="remote_volume">Volumen</string>
+    <string name="remote_channel">Canal</string>
+
+    <!-- Devices -->
+    <string name="devices_title">Televisores</string>
+    <string name="devices_searching">Buscando en tu Wi‑Fi…</string>
+    <string name="devices_empty">No se encontraron televisores</string>
+    <string name="devices_empty_hint">Verifica que el reloj y el TV estén en la misma red Wi‑Fi</string>
+    <string name="devices_rescan">Buscar de nuevo</string>
+    <string name="devices_saved">Guardados</string>
+    <string name="devices_found">Encontrados</string>
+    <string name="devices_connected">Conectado</string>
+    <string name="devices_forget">Olvidar</string>
+    <string name="devices_forget_question">¿Olvidar este televisor?</string>
+    <string name="devices_long_press_hint">Mantén presionado para olvidar</string>
+
+    <!-- Pairing -->
+    <string name="pairing_title">Vinculando</string>
+    <string name="pairing_connecting">Conectando con %1$s…</string>
+    <string name="pairing_accept_on_tv">Acepta la solicitud en la pantalla del TV</string>
+    <string name="pairing_enter_pin">Ingresa el código que aparece en el TV</string>
+    <string name="pairing_invalid_pin">Código incorrecto, revisa el TV</string>
+    <string name="pairing_enter_pin_button">Ingresar código</string>
+    <string name="pairing_success">¡Listo! TV vinculado</string>
+    <string name="pairing_failed">No se pudo conectar</string>
+    <string name="pairing_retry">Reintentar</string>
+    <string name="pairing_done">Continuar</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Ajustes</string>
+    <string name="settings_ai">Asistente con IA</string>
+    <string name="settings_ai_on">Claude interpreta tus frases</string>
+    <string name="settings_ai_off">Solo comandos básicos sin conexión</string>
+    <string name="settings_ai_missing_key">Falta la clave de API de Claude</string>
+    <string name="settings_haptics">Vibración al pulsar</string>
+    <string name="settings_sony_psk">Clave PSK de Sony</string>
+    <string name="settings_version">Versión %1$s</string>
+
+    <!-- Connection status -->
+    <string name="status_connected">Conectado</string>
+    <string name="status_connecting">Conectando…</string>
+    <string name="status_awaiting_approval">Esperando aprobación</string>
+    <string name="status_awaiting_pin">Esperando código</string>
+    <string name="status_disconnected">Desconectado</string>
+    <string name="status_failed">Sin conexión</string>
+
+    <!-- Executed actions feedback -->
+    <string name="action_volume_up">Volumen +%1$d</string>
+    <string name="action_volume_down">Volumen −%1$d</string>
+    <string name="action_mute">Silencio</string>
+    <string name="action_power">Encender / apagar</string>
+    <string name="action_channel_up">Canal +%1$d</string>
+    <string name="action_channel_down">Canal −%1$d</string>
+    <string name="action_navigate">Navegando</string>
+    <string name="action_select">Seleccionado</string>
+    <string name="action_back">Atrás</string>
+    <string name="action_home">Inicio</string>
+    <string name="action_menu">Menú</string>
+    <string name="action_input">Cambiar entrada</string>
+    <string name="action_play">Reproducir</string>
+    <string name="action_pause">Pausa</string>
+    <string name="action_stop">Detener</string>
+    <string name="action_rewind">Retroceder</string>
+    <string name="action_fast_forward">Adelantar</string>
+    <string name="action_open_app">Abriendo %1$s</string>
+    <string name="action_failed">No se pudo enviar al TV</string>
+
+    <!-- Remote extra keys -->
+    <string name="key_rewind">Retroceder</string>
+    <string name="key_fast_forward">Adelantar</string>
+    <string name="key_menu">Menú</string>
+    <string name="key_input">Entrada</string>
+    <string name="remote_crown_hint">Gira la corona para el volumen</string>
+    <string name="remote_media">Multimedia</string>
+
+    <!-- Errors -->
+    <string name="error_wifi">Conéctate a una red Wi‑Fi</string>
+    <string name="error_unreachable">El TV no responde</string>
+    <string name="error_rejected">El TV rechazó la conexión</string>
+    <string name="error_unsupported">Este TV aún no es compatible</string>
+    <string name="error_generic">Algo salió mal, intenta de nuevo</string>
+
+    <!-- Remote keys (content descriptions) -->
+    <string name="key_power">Encender o apagar</string>
+    <string name="key_volume_up">Subir volumen</string>
+    <string name="key_volume_down">Bajar volumen</string>
+    <string name="key_mute">Silenciar</string>
+    <string name="key_channel_up">Canal siguiente</string>
+    <string name="key_channel_down">Canal anterior</string>
+    <string name="key_up">Arriba</string>
+    <string name="key_down">Abajo</string>
+    <string name="key_left">Izquierda</string>
+    <string name="key_right">Derecha</string>
+    <string name="key_ok">Aceptar</string>
+    <string name="key_ok_short">OK</string>
+    <string name="key_back">Atrás</string>
+    <string name="key_home">Inicio</string>
+    <string name="key_play_pause">Reproducir o pausar</string>
+    <string name="key_mic">Hablar</string>
+</resources>
