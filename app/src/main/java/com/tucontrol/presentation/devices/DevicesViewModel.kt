@@ -2,6 +2,7 @@ package com.tucontrol.presentation.devices
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tucontrol.data.network.WifiNetworkProvider
 import com.tucontrol.data.session.RemoteSession
 import com.tucontrol.domain.model.ConnectionState
 import com.tucontrol.domain.model.TvDevice
@@ -26,16 +27,19 @@ data class DevicesUiState(
     val activeId: String? = null,
     val activeConnection: ConnectionState = ConnectionState.Disconnected,
     val scanning: Boolean = false,
+    val wifiUnavailable: Boolean = false,
 )
 
 class DevicesViewModel(
     private val discovery: TvDiscovery,
     private val devices: DeviceRepository,
     private val session: RemoteSession,
+    private val wifi: WifiNetworkProvider,
 ) : ViewModel() {
 
     private val discovered = MutableStateFlow<List<TvDevice>>(emptyList())
     private val scanning = MutableStateFlow(false)
+    private val wifiUnavailable = MutableStateFlow(false)
     private var scanJob: Job? = null
 
     val uiState: StateFlow<DevicesUiState> = combine(
@@ -43,8 +47,8 @@ class DevicesViewModel(
         discovered,
         session.device,
         session.state,
-        scanning,
-    ) { saved, found, active, connection, isScanning ->
+        combine(scanning, wifiUnavailable, ::Pair),
+    ) { saved, found, active, connection, (isScanning, noWifi) ->
         val savedIds = saved.map { it.id }.toSet()
         val savedHosts = saved.map { it.host }.toSet()
         DevicesUiState(
@@ -53,6 +57,7 @@ class DevicesViewModel(
             activeId = active?.id,
             activeConnection = connection,
             scanning = isScanning,
+            wifiUnavailable = noWifi,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DevicesUiState())
 
@@ -63,6 +68,13 @@ class DevicesViewModel(
     fun scan() {
         scanJob?.cancel()
         scanJob = viewModelScope.launch {
+            scanning.value = true
+            val hasWifi = wifi.acquire() != null
+            wifiUnavailable.value = !hasWifi
+            if (!hasWifi) {
+                scanning.value = false
+                return@launch
+            }
             discovery.discover()
                 .onStart { scanning.value = true }
                 .onCompletion { scanning.value = false }
@@ -80,6 +92,6 @@ class DevicesViewModel(
     }
 
     companion object {
-        val Factory = containerFactory { DevicesViewModel(discovery, deviceRepository, session) }
+        val Factory = containerFactory { DevicesViewModel(discovery, deviceRepository, session, wifi) }
     }
 }

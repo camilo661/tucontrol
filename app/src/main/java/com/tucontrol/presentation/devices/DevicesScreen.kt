@@ -1,5 +1,6 @@
 package com.tucontrol.presentation.devices
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.WifiFind
+import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,7 +32,6 @@ import androidx.wear.compose.material3.AlertDialogDefaults
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.CircularProgressIndicator
-import androidx.wear.compose.material3.EdgeButton
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
@@ -51,14 +53,7 @@ fun DevicesScreen(
     val listState = rememberTransformingLazyColumnState()
     var pendingForget by remember { mutableStateOf<TvDevice?>(null) }
 
-    ScreenScaffold(
-        scrollState = listState,
-        edgeButton = {
-            EdgeButton(onClick = viewModel::scan, enabled = !state.scanning) {
-                Icon(Icons.Rounded.Refresh, contentDescription = stringResource(R.string.devices_rescan))
-            }
-        },
-    ) { contentPadding ->
+    ScreenScaffold(scrollState = listState) { contentPadding ->
         TransformingLazyColumn(state = listState, contentPadding = contentPadding) {
             item { ListHeader { Text(stringResource(R.string.devices_title)) } }
 
@@ -95,10 +90,25 @@ fun DevicesScreen(
                 }
             }
 
-            if (state.scanning) {
-                item { ScanningIndicator() }
-            } else if (state.found.isEmpty() && state.saved.isEmpty()) {
-                item { EmptyState() }
+            when {
+                state.scanning -> item { ScanningIndicator() }
+                state.wifiUnavailable -> item {
+                    EmptyState(Icons.Rounded.WifiOff, R.string.error_wifi, R.string.devices_empty_hint)
+                }
+                state.found.isEmpty() && state.saved.isEmpty() -> item {
+                    EmptyState(Icons.Rounded.WifiFind, R.string.devices_empty, R.string.devices_empty_hint)
+                }
+            }
+
+            if (!state.scanning) {
+                item {
+                    Button(
+                        onClick = viewModel::scan,
+                        modifier = Modifier.fillMaxWidth(),
+                        icon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
+                        label = { Text(stringResource(R.string.devices_rescan)) },
+                    )
+                }
             }
         }
     }
@@ -182,25 +192,25 @@ private fun ScanningIndicator() {
 }
 
 @Composable
-private fun EmptyState() {
+private fun EmptyState(icon: ImageVector, @StringRes title: Int, @StringRes hint: Int) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(
-            imageVector = Icons.Rounded.WifiFind,
+            imageVector = icon,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(28.dp),
         )
         Text(
-            text = stringResource(R.string.devices_empty),
+            text = stringResource(title),
             style = MaterialTheme.typography.titleSmall,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 6.dp),
         )
         Text(
-            text = stringResource(R.string.devices_empty_hint),
+            text = stringResource(hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,

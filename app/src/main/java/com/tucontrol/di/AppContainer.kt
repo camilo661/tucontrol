@@ -33,7 +33,7 @@ class AppContainer(context: Context) {
     private val appContext = context.applicationContext
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val httpClients = LocalHttpClients()
-    private val wifi = WifiNetworkProvider(appContext)
+    val wifi = WifiNetworkProvider(appContext)
 
     val deviceRepository: DeviceRepository = DataStoreDeviceRepository(appContext.dataStore)
     val settingsRepository: SettingsRepository = DataStoreSettingsRepository(appContext.dataStore)
