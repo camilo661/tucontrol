@@ -6,6 +6,7 @@ import com.tucontrol.data.tv.BaseTvController
 import com.tucontrol.data.tv.TvRejectedException
 import com.tucontrol.domain.model.ConnectionState
 import com.tucontrol.domain.model.InstalledApp
+import com.tucontrol.domain.model.MediaQueueItem
 import com.tucontrol.domain.model.RemoteKey
 import com.tucontrol.domain.model.TvAction
 import com.tucontrol.domain.model.SettingsSection
@@ -241,6 +242,12 @@ class AndroidTvController(
         }
         return true
     }
+
+    override suspend fun mediaQueue(): List<MediaQueueItem>? =
+        if (agentReady()) runCatching { agent.queue() }.getOrNull() else null
+
+    override suspend fun playQueueItem(id: Long): Boolean =
+        agentReady() && runCatching { agent.playQueueItem(id) }.getOrDefault(false)
 
     override suspend fun select(target: String): Boolean =
         agentReady() && runCatching { agent.select(target) }.getOrDefault(false)

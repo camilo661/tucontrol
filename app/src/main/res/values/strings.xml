@@ -141,6 +141,11 @@
 
     <!-- Remote extra keys -->
     <string name="key_rewind">Retroceder</string>
+    <string name="queue_title">Lista de reproducción</string>
+    <string name="queue_playing">Sonando ahora</string>
+    <string name="queue_refresh">Actualizar</string>
+    <string name="queue_empty">La app que está sonando no comparte su lista, o no hay nada reproduciéndose.</string>
+    <string name="queue_unavailable">Activa la depuración en el TV y acepta el aviso para ver la lista.</string>
     <string name="key_previous_hold_rewind">Anterior (mantén para retroceder)</string>
     <string name="key_next_hold_forward">Siguiente (mantén para adelantar)</string>
     <string name="key_fast_forward">Adelantar</string>
@@ -169,7 +174,8 @@
     <string name="key_right">Derecha</string>
     <string name="key_ok">Aceptar</string>
     <string name="key_ok_short">OK</string>
-    <string name="key_back">Atrás</string>
+    <string name="key_back">Atrás (mantén para volver a la voz)</string>
+    <string name="key_captions">Subtítulos</string>
     <string name="key_home">Inicio</string>
     <string name="key_play_pause">Reproducir o pausar</string>
     <string name="key_mic">Hablar</string>

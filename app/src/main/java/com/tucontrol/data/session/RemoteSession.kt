@@ -6,6 +6,7 @@ import com.tucontrol.domain.model.AppNames
 import com.tucontrol.domain.model.CommandPlan
 import com.tucontrol.domain.model.ConnectionError
 import com.tucontrol.domain.model.ConnectionState
+import com.tucontrol.domain.model.MediaQueueItem
 import com.tucontrol.domain.model.RemoteKey
 import com.tucontrol.domain.model.StreamingApp
 import com.tucontrol.domain.model.TvAction
@@ -169,6 +170,17 @@ class RemoteSession(
         val unknown = names.filter { AppNames.find(it, apps) == null }
         unknown.firstOrNull()?.let(active::learnNextAppAs)
         return unknown
+    }
+
+    /** The play queue of the app playing on the TV; `null` when it cannot be read. */
+    suspend fun mediaQueue(): List<MediaQueueItem>? = commandLock.withLock {
+        val active = controller.value ?: return null
+        if (active.state.value != ConnectionState.Connected) connect(active.device)
+        runCatching { active.mediaQueue() }.getOrNull()
+    }
+
+    suspend fun playQueueItem(id: Long): Boolean = commandLock.withLock {
+        controller.value?.let { runCatching { it.playQueueItem(id) }.getOrDefault(false) } ?: false
     }
 
     /** Whether the connected TV has an assistant that can take the user's voice as-is. */

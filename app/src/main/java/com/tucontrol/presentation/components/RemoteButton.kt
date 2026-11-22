@@ -21,6 +21,7 @@ fun RemoteButton(
     contentDescription: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
     style: RemoteButtonStyle = RemoteButtonStyle.TONAL,
     size: Dp = 48.dp,
 ) {
@@ -30,10 +31,12 @@ fun RemoteButton(
     when (style) {
         RemoteButtonStyle.PRIMARY -> FilledIconButton(
             onClick = onClick,
+            onLongClick = onLongClick,
             modifier = modifier.size(size),
         ) { content() }
         RemoteButtonStyle.POWER -> FilledIconButton(
             onClick = onClick,
+            onLongClick = onLongClick,
             modifier = modifier.size(size),
             colors = IconButtonDefaults.filledIconButtonColors(
                 containerColor = MaterialTheme.colorScheme.tertiaryContainer,
@@ -42,6 +45,7 @@ fun RemoteButton(
         ) { content() }
         RemoteButtonStyle.TONAL -> FilledTonalIconButton(
             onClick = onClick,
+            onLongClick = onLongClick,
             modifier = modifier.size(size),
         ) { content() }
     }

@@ -22,7 +22,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Input
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.ClosedCaption
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.Home
@@ -70,7 +72,11 @@ private const val ROTARY_STEP_PX = 48f
  * Turning the crown/bezel changes the volume from any page.
  */
 @Composable
-fun RemoteScreen(viewModel: RemoteViewModel = viewModel(factory = RemoteViewModel.Factory)) {
+fun RemoteScreen(
+    onExit: () -> Unit,
+    onOpenQueue: () -> Unit,
+    viewModel: RemoteViewModel = viewModel(factory = RemoteViewModel.Factory),
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val haptics = rememberHaptics(state.hapticsEnabled)
     val pagerState = rememberPagerState(pageCount = { PAGE_COUNT })
@@ -110,9 +116,9 @@ fun RemoteScreen(viewModel: RemoteViewModel = viewModel(factory = RemoteViewMode
         ) {
             HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
                 when (page) {
-                    0 -> NavigationPage(press)
+                    0 -> NavigationPage(press, onExit)
                     1 -> VolumeChannelPage(press)
-                    else -> MediaPage(press)
+                    else -> MediaPage(press, onOpenQueue, onExit)
                 }
             }
             HorizontalPageIndicator(
@@ -132,7 +138,7 @@ fun RemoteScreen(viewModel: RemoteViewModel = viewModel(factory = RemoteViewMode
 }
 
 @Composable
-private fun NavigationPage(press: (RemoteKey) -> Unit) {
+private fun NavigationPage(press: (RemoteKey) -> Unit, onExit: () -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         DirectionalPad(onKey = press)
         Row(
@@ -143,6 +149,7 @@ private fun NavigationPage(press: (RemoteKey) -> Unit) {
                 icon = Icons.AutoMirrored.Rounded.ArrowBack,
                 contentDescription = stringResource(R.string.key_back),
                 onClick = { press(RemoteKey.BACK) },
+                onLongClick = onExit, // Hold ← to leave the remote.
                 size = 36.dp,
             )
             RemoteButton(
@@ -224,7 +231,7 @@ private fun RockerControl(
 }
 
 @Composable
-private fun MediaPage(press: (RemoteKey) -> Unit) {
+private fun MediaPage(press: (RemoteKey) -> Unit, onOpenQueue: () -> Unit, onExit: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,
@@ -262,9 +269,16 @@ private fun MediaPage(press: (RemoteKey) -> Unit) {
             )
         }
         Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-            RemoteButton(Icons.Rounded.Menu, stringResource(R.string.key_menu), { press(RemoteKey.MENU) }, size = 40.dp)
-            RemoteButton(Icons.AutoMirrored.Rounded.Input, stringResource(R.string.key_input), { press(RemoteKey.INPUT) }, size = 40.dp)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            RemoteButton(
+                icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                contentDescription = stringResource(R.string.key_back),
+                onClick = { press(RemoteKey.BACK) },
+                onLongClick = onExit, // Hold ← to go back to the voice screen.
+                size = 40.dp,
+            )
+            RemoteButton(Icons.AutoMirrored.Rounded.QueueMusic, stringResource(R.string.queue_title), onOpenQueue, size = 40.dp)
+            RemoteButton(Icons.Rounded.ClosedCaption, stringResource(R.string.key_captions), { press(RemoteKey.CAPTIONS) }, size = 40.dp)
         }
     }
 }

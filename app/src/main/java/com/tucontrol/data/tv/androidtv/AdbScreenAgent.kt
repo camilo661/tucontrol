@@ -3,6 +3,7 @@ package com.tucontrol.data.tv.androidtv
 import android.util.Log
 import com.tucontrol.BuildConfig
 import com.tucontrol.domain.model.InstalledApp
+import com.tucontrol.domain.model.MediaQueueItem
 import com.tucontrol.domain.model.SettingsSection
 import dadb.AdbKeyPair
 import dadb.Dadb
@@ -84,6 +85,28 @@ class AdbScreenAgent(
         val output = shell("CLASSPATH=$path app_process /system/bin $HELPER_CLASS ${if (relative) "by" else "to"} $ms").trim()
         log("Seek ${if (relative) "by" else "to"} $ms: $output")
         return output.startsWith("ok ")
+    }
+
+    /** The play queue of the app playing, as it shares it; `null` without screen access. */
+    suspend fun queue(): List<MediaQueueItem>? {
+        val path = ensureHelper() ?: return null
+        val output = shell("CLASSPATH=$path app_process /system/bin $HELPER_CLASS queue")
+        log("Queue: ${output.lineSequence().firstOrNull()}")
+        // Connected, but nothing is playing or the app shares no list: an empty list, not "no access".
+        if (!output.trimStart().startsWith("ok")) return emptyList()
+        return output.lineSequence()
+            .map { it.split('\t') }
+            .filter { it.size >= 5 && it[0] == "item" }
+            .mapNotNull { parts ->
+                val id = parts[1].toLongOrNull() ?: return@mapNotNull null
+                MediaQueueItem(id, parts[3].ifBlank { "—" }, parts[4], parts[2] == "1")
+            }
+            .toList()
+    }
+
+    suspend fun playQueueItem(id: Long): Boolean {
+        val path = ensureHelper() ?: return false
+        return shell("CLASSPATH=$path app_process /system/bin $HELPER_CLASS item $id").trim().startsWith("ok")
     }
 
     /** Copies the helper to the TV once per version; returns its path there. */

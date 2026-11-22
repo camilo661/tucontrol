@@ -2,6 +2,7 @@ package com.tucontrol.domain.repository
 
 import com.tucontrol.domain.model.ConnectionState
 import com.tucontrol.domain.model.InstalledApp
+import com.tucontrol.domain.model.MediaQueueItem
 import com.tucontrol.domain.model.RemoteKey
 import com.tucontrol.domain.model.SettingsSection
 import com.tucontrol.domain.model.StreamingApp
@@ -47,6 +48,11 @@ interface TvController {
      * playing. Returns `false` when the TV gives no way to jump to an exact time.
      */
     suspend fun seek(seconds: Int, relative: Boolean): Boolean = false
+
+    /** The play queue of the app playing; `null` when the TV cannot share it. */
+    suspend fun mediaQueue(): List<MediaQueueItem>? = null
+
+    suspend fun playQueueItem(id: Long): Boolean = false
 
     /**
      * Opens the TV settings. Most platforms expose no deep links into them, so the default is

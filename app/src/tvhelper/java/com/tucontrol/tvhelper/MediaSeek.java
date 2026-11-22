@@ -21,8 +21,11 @@ import java.util.List;
  * MediaSeek to  &lt;ms&gt;   jump to that time
  * MediaSeek by  &lt;ms&gt;   jump forwards (positive) or backwards (negative)
  * MediaSeek pos          print the current time
+ * MediaSeek queue        list the play queue: one {@code item<TAB>id<TAB>active<TAB>title<TAB>subtitle} per line
+ * MediaSeek item &lt;id&gt;   play that queue item
  * </pre>
- * Prints {@code ok <package> <fromMs> <toMs> <durationMs>} or {@code error <reason>}.
+ * Prints {@code ok <package> <fromMs> <toMs> <durationMs>} (queue: {@code ok <package>} then
+ * the items) or {@code error <reason>}.
  */
 public final class MediaSeek {
 
@@ -53,6 +56,15 @@ public final class MediaSeek {
         MediaMetadata metadata = controller.getMetadata();
         if (metadata != null) duration = metadata.getLong(MediaMetadata.METADATA_KEY_DURATION);
 
+        if (args[0].equals("queue")) return queue(controller);
+        if (args[0].equals("item") && args.length >= 2) {
+            MediaController.TransportControls controls = controller.getTransportControls();
+            controls.skipToQueueItem(Long.parseLong(args[1]));
+            Thread.sleep(300);
+            controls.play();
+            return "ok " + controller.getPackageName();
+        }
+
         if (args[0].equals("pos")) return "ok " + controller.getPackageName() + " " + now + " " + now + " " + duration;
         if (args.length < 2) return "error usage";
 
@@ -66,6 +78,25 @@ public final class MediaSeek {
         Thread.sleep(400);
         controls.play(); // Never leave the video paused after jumping.
         return "ok " + controller.getPackageName() + " " + now + " " + target + " " + duration;
+    }
+
+    private static String queue(MediaController controller) {
+        StringBuilder out = new StringBuilder("ok ").append(controller.getPackageName());
+        List<android.media.session.MediaSession.QueueItem> items = controller.getQueue();
+        if (items == null) return out.toString();
+        PlaybackState state = controller.getPlaybackState();
+        long active = state == null ? -1 : state.getActiveQueueItemId();
+        for (android.media.session.MediaSession.QueueItem item : items) {
+            out.append('\n').append("item\t").append(item.getQueueId())
+                .append('\t').append(item.getQueueId() == active ? 1 : 0)
+                .append('\t').append(clean(item.getDescription().getTitle()))
+                .append('\t').append(clean(item.getDescription().getSubtitle()));
+        }
+        return out.toString();
+    }
+
+    private static String clean(CharSequence text) {
+        return text == null ? "" : text.toString().replace('\t', ' ').replace('\n', ' ').trim();
     }
 
     /** The session playing now, else a paused one, else whichever is first. */

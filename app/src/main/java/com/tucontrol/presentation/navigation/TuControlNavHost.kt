@@ -10,6 +10,7 @@ import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import com.tucontrol.presentation.devices.DevicesScreen
 import com.tucontrol.presentation.home.HomeScreen
 import com.tucontrol.presentation.pairing.PairingScreen
+import com.tucontrol.presentation.queue.QueueScreen
 import com.tucontrol.presentation.remote.RemoteScreen
 import com.tucontrol.presentation.settings.SettingsScreen
 import com.tucontrol.presentation.welcome.WelcomeScreen
@@ -21,6 +22,7 @@ private object Routes {
     const val DEVICES = "devices"
     const val PAIRING = "pairing"
     const val SETTINGS = "settings"
+    const val QUEUE = "queue"
     const val WELCOME = "welcome"
 }
 
@@ -54,7 +56,13 @@ fun TuControlNavHost(welcome: WelcomeViewModel = viewModel(factory = WelcomeView
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
             )
         }
-        composable(Routes.REMOTE) { RemoteScreen() }
+        composable(Routes.REMOTE) {
+            RemoteScreen(
+                onExit = { navController.popBackStack() },
+                onOpenQueue = { navController.navigate(Routes.QUEUE) },
+            )
+        }
+        composable(Routes.QUEUE) { QueueScreen(onPlayed = { navController.popBackStack() }) }
         composable(Routes.DEVICES) {
             DevicesScreen(onDeviceSelected = { navController.navigate(Routes.PAIRING) })
         }
