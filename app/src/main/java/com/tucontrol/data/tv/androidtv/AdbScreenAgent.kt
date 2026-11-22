@@ -22,7 +22,10 @@ import kotlin.math.abs
  * It needs "Depuración por USB" enabled on the TV and the watch approved once on the TV's
  * prompt. Without it, the controller falls back to the TV's assistant and fixed menu paths.
  */
-class AdbScreenAgent(private val keyDirectory: File) {
+class AdbScreenAgent(
+    private val keyDirectory: File,
+    private val helperDex: () -> ByteArray = { ByteArray(0) },
+) {
 
     private val mutex = Mutex()
     @Volatile private var dadb: Dadb? = null
@@ -70,6 +73,30 @@ class AdbScreenAgent(private val keyDirectory: File) {
             return PAIRING_LABELS.any { select(it) }
         }
         return true
+    }
+
+    /**
+     * Moves the video playing on the TV to [ms] (or by [ms] when [relative]) and keeps it
+     * playing. Runs the media helper on the TV, which reaches the app's media session.
+     */
+    suspend fun seek(ms: Long, relative: Boolean): Boolean {
+        val path = ensureHelper() ?: return false
+        val output = shell("CLASSPATH=$path app_process /system/bin $HELPER_CLASS ${if (relative) "by" else "to"} $ms").trim()
+        log("Seek ${if (relative) "by" else "to"} $ms: $output")
+        return output.startsWith("ok ")
+    }
+
+    /** Copies the helper to the TV once per version; returns its path there. */
+    private suspend fun ensureHelper(): String? = withContext(Dispatchers.IO) {
+        val bytes = runCatching { helperDex() }.getOrNull()?.takeIf { it.isNotEmpty() } ?: return@withContext null
+        val version = java.util.zip.CRC32().apply { update(bytes) }.value.toString(16)
+        val path = "$HELPER_DIR/tucontrol_media_$version.dex"
+        if (shell("[ -f $path ] && echo yes").trim() != "yes") {
+            shell("rm -f $HELPER_DIR/tucontrol_media_*.dex")
+            val connection = dadb ?: return@withContext null
+            connection.push(okio.Buffer().write(bytes), path, HELPER_MODE, System.currentTimeMillis())
+        }
+        path
     }
 
     /** The UI hierarchy, dumped to a temporary file (there is no terminal over this connection). */
@@ -171,6 +198,9 @@ class AdbScreenAgent(private val keyDirectory: File) {
         const val TAG = "TvAgent"
         const val ADB_PORT = 5555
         const val DUMP_FILE = "/data/local/tmp/tucontrol_screen.xml"
+        const val HELPER_DIR = "/data/local/tmp"
+        const val HELPER_CLASS = "com.tucontrol.tvhelper.MediaSeek"
+        const val HELPER_MODE = 420 // 0644
         const val CONNECT_TIMEOUT_MS = 3_000
         const val APPROVAL_TIMEOUT_MS = 30_000
         const val SELECT_ATTEMPTS = 4

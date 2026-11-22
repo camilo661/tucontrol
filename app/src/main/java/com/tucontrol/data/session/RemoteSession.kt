@@ -210,6 +210,11 @@ class RemoteSession(
                     )
                 }
                 onStep(step)
+                if (action == TvAction.Press(RemoteKey.OK) && lastAction.isYouTubeSearch()) {
+                    // YouTube's first result is usually a sponsored ad: skip to the second one.
+                    active.press(RemoteKey.RIGHT)
+                    delay(STEP_DELAY_MS)
+                }
                 when (action) {
                     is TvAction.Press -> repeat(action.times) { index ->
                         if (index > 0) delay(REPEAT_DELAY_MS)
@@ -224,7 +229,10 @@ class RemoteSession(
                         delay(REPEAT_DELAY_MS)
                     }
                     is TvAction.Search -> active.search(action.query, action.app)
+                    is TvAction.SetVolume -> if (!active.setVolume(action.percent)) return false
+                    is TvAction.Seek -> if (!active.seek(action.seconds, action.relative)) return false
                 }
+                lastAction = action
             }
             true
         } catch (cancellation: CancellationException) {
@@ -233,6 +241,12 @@ class RemoteSession(
             false
         }
     }
+
+    /** The last action run, across plans, so "…y ponla" knows it follows a search. */
+    @Volatile private var lastAction: TvAction? = null
+
+    private fun TvAction?.isYouTubeSearch() =
+        this is TvAction.Search && (app == null || app == StreamingApp.YOUTUBE)
 
     private companion object {
         const val REPEAT_DELAY_MS = 120L

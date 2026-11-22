@@ -73,6 +73,9 @@ class ClaudeCommandInterpreter(apiKey: String) : CommandInterpreter {
                     ?.let { TvAction.Press(it, action.times.coerceIn(1, TvAction.MAX_REPEAT)) }
                 "launch" -> app?.let { TvAction.LaunchApp(it) }
                 "channel" -> action.number.takeIf { it in 1..TvAction.MAX_CHANNEL }?.let { TvAction.TuneChannel(it) }
+                "seek" -> action.number.takeIf { it >= 0 }?.let { TvAction.Seek(it) }
+                "seek_by" -> action.number.takeIf { it != 0 }?.let { TvAction.Seek(it, relative = true) }
+                "volume" -> action.number.takeIf { it in 0..100 }?.let { TvAction.SetVolume(it) }
                 "search" -> action.query.trim().takeIf { it.isNotEmpty() }?.let { TvAction.Search(it, app) }
                 else -> null
             }
@@ -109,6 +112,13 @@ class ClaudeCommandInterpreter(apiKey: String) : CommandInterpreter {
             - "press": press `key` `times` times (1-${TvAction.MAX_REPEAT}).
             - "launch": open the streaming `app`.
             - "channel": tune channel `number` (e.g. "pon el canal 7", "ve al 105").
+            - "volume": set the volume to `number` percent (0-100) when the user names a level
+              ("pon el volumen al 50", "sube el volumen a 80%", "volumen en 20 por ciento").
+            - "seek": jump the video playing to `number` seconds from its start and keep it
+              playing ("adelanta hasta el 1:30" → 90, "ve al minuto 5" → 300, "retrocede hasta
+              el 0:45" → 45). "1.30", "1,30" and "1:30" all mean 1 min 30 s.
+            - "seek_by": jump by `number` seconds, negative to go back ("adelanta 30 segundos" →
+              30, "regresa 2 minutos" → -120).
             - "search": search for `query` (titles, artists, topics), inside `app` when the user
               names one or the content clearly belongs to one; otherwise app "NONE".
 
@@ -120,6 +130,8 @@ class ClaudeCommandInterpreter(apiKey: String) : CommandInterpreter {
               To play specific content ("pon Despacito", "entra a YouTube y pon X"), search it
               and then press OK to play the first result. Default to YOUTUBE for songs and
               videos when no app is named.
+            - A volume with "%", "por ciento", "al N" or "a N" is a target level → "volume",
+              never presses. "sube 5" / "baja dos" without a level are presses.
             - Volume changes without an explicit amount mean 3 presses; "un poco" 2; "mucho" 6.
             - "apaga" / "enciende" / "prende" the TV all map to POWER.
             - "ajustes"/"configuración" → SETTINGS. Brightness → BRIGHTNESS_UP/BRIGHTNESS_DOWN.
@@ -150,7 +162,7 @@ class ClaudeCommandInterpreter(apiKey: String) : CommandInterpreter {
                                 "properties" to mapOf(
                                     "type" to mapOf(
                                         "type" to "string",
-                                        "enum" to listOf("press", "launch", "channel", "search"),
+                                        "enum" to listOf("press", "launch", "channel", "volume", "seek", "seek_by", "search"),
                                     ),
                                     "key" to mapOf(
                                         "type" to "string",

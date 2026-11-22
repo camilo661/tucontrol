@@ -5,6 +5,7 @@ import java.net.NetworkInterface
 import java.net.Socket
 import java.util.Properties
 import java.util.concurrent.Executors
+import javax.inject.Inject
 
 plugins {
     alias(libs.plugins.android.application)
@@ -37,8 +38,8 @@ android {
         applicationId = "com.tucontrol.app"
         minSdk = 30
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
 
         val apiKey = secrets.getProperty("ANTHROPIC_API_KEY")
             ?: System.getenv("ANTHROPIC_API_KEY")
@@ -140,7 +141,55 @@ abstract class HostLanTvs : ValueSource<String, ValueSourceParameters.None> {
     }.isSuccess
 }
 
+/**
+ * Builds the small helper that TuControl runs on Android TVs over ADB (see MediaSeek.java):
+ * plain Java compiled against the platform and dexed into an asset, outside the app's own code.
+ */
+abstract class BuildTvHelper : DefaultTask() {
+    @get:InputDirectory abstract val sources: DirectoryProperty
+    @get:InputFile abstract val androidJar: RegularFileProperty
+    @get:InputFile abstract val d8: RegularFileProperty
+    @get:OutputDirectory abstract val outputDir: DirectoryProperty
+    @get:Inject abstract val exec: ExecOperations
+
+    @TaskAction
+    fun build() {
+        val classes = File(temporaryDir, "classes").apply { deleteRecursively(); mkdirs() }
+        val javaFiles = sources.get().asFileTree.matching { include("**/*.java") }.files.map { it.absolutePath }
+        exec.exec {
+            commandLine(
+                listOf("javac", "-source", "1.8", "-target", "1.8", "-Xlint:-options", "-nowarn",
+                    "-bootclasspath", androidJar.get().asFile.absolutePath, "-d", classes.absolutePath) + javaFiles,
+            )
+        }
+        val dexDir = File(temporaryDir, "dex").apply { deleteRecursively(); mkdirs() }
+        val classFiles = classes.walk().filter { it.isFile && it.extension == "class" }.map { it.absolutePath }.toList()
+        exec.exec {
+            commandLine(
+                listOf(d8.get().asFile.absolutePath, "--release", "--min-api", "30",
+                    "--lib", androidJar.get().asFile.absolutePath, "--output", dexDir.absolutePath) + classFiles,
+            )
+        }
+        val out = outputDir.get().asFile.apply { deleteRecursively(); mkdirs() }
+        File(dexDir, "classes.dex").copyTo(File(out, "tvhelper.dex"), overwrite = true)
+    }
+}
+
+val sdkDir: File = Properties().run {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use(::load)
+    File(getProperty("sdk.dir") ?: System.getenv("ANDROID_HOME"))
+}
+
+val buildTvHelper = tasks.register<BuildTvHelper>("buildTvHelper") {
+    sources.set(layout.projectDirectory.dir("src/tvhelper/java"))
+    androidJar.set(File(sdkDir, "platforms/android-36/android.jar"))
+    d8.set(File(sdkDir, "build-tools/36.0.0/d8"))
+}
+
 androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(buildTvHelper, BuildTvHelper::outputDir)
+    }
     onVariants(selector().withBuildType("debug")) { variant ->
         variant.buildConfigFields?.put(
             "DEV_LAN_HOSTS",

@@ -29,6 +29,8 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Remove
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,6 +58,7 @@ import com.tucontrol.domain.model.RemoteKey
 import com.tucontrol.presentation.common.rememberHaptics
 import com.tucontrol.presentation.components.RemoteButton
 import com.tucontrol.presentation.components.RemoteButtonStyle
+import com.tucontrol.presentation.components.SkipSeekButton
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 
@@ -234,7 +237,14 @@ private fun MediaPage(press: (RemoteKey) -> Unit) {
         )
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            RemoteButton(Icons.Rounded.FastRewind, stringResource(R.string.key_rewind), { press(RemoteKey.REWIND) })
+            SkipSeekButton(
+                tapIcon = Icons.Rounded.SkipPrevious,
+                holdIcon = Icons.Rounded.FastRewind,
+                contentDescription = stringResource(R.string.key_previous_hold_rewind),
+                holdDescription = stringResource(R.string.key_rewind),
+                onTap = { press(RemoteKey.PREVIOUS) },
+                onHoldStep = { press(RemoteKey.REWIND) },
+            )
             RemoteButton(
                 icon = Icons.Rounded.PlayArrow,
                 contentDescription = stringResource(R.string.key_play_pause),
@@ -242,7 +252,14 @@ private fun MediaPage(press: (RemoteKey) -> Unit) {
                 style = RemoteButtonStyle.PRIMARY,
                 size = 60.dp,
             )
-            RemoteButton(Icons.Rounded.FastForward, stringResource(R.string.key_fast_forward), { press(RemoteKey.FAST_FORWARD) })
+            SkipSeekButton(
+                tapIcon = Icons.Rounded.SkipNext,
+                holdIcon = Icons.Rounded.FastForward,
+                contentDescription = stringResource(R.string.key_next_hold_forward),
+                holdDescription = stringResource(R.string.key_fast_forward),
+                onTap = { press(RemoteKey.NEXT) },
+                onHoldStep = { press(RemoteKey.FAST_FORWARD) },
+            )
         }
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {

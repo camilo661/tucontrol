@@ -68,6 +68,12 @@ class LgWebOsController(
         }
     }
 
+    override suspend fun setVolume(percent: Int): Boolean {
+        ensureConnected()
+        request("ssap://audio/setVolume", buildJsonObject { put("volume", percent) })
+        return true
+    }
+
     override suspend fun press(key: RemoteKey) {
         ensureConnected()
         when (key) {

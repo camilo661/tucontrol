@@ -29,7 +29,21 @@ object ActionText {
         }
     }
 
+    /** 90 → "1:30", 3725 → "1:02:05". */
+    private fun clock(seconds: Int): String {
+        val h = seconds / 3600
+        val m = seconds / 60 % 60
+        val s = seconds % 60
+        return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+    }
+
     private fun describe(resources: Resources, action: TvAction): String = when (action) {
+        is TvAction.SetVolume -> resources.getString(R.string.action_set_volume, action.percent)
+        is TvAction.Seek -> when {
+            !action.relative -> resources.getString(R.string.action_seek_to, clock(action.seconds))
+            action.seconds >= 0 -> resources.getString(R.string.action_seek_forward, clock(action.seconds))
+            else -> resources.getString(R.string.action_seek_back, clock(-action.seconds))
+        }
         is TvAction.LaunchApp -> resources.getString(R.string.action_open_app, action.app.displayName)
         is TvAction.OpenApp -> resources.getString(R.string.action_open_app, appName(action.name))
         is TvAction.OpenSettings -> resources.getString(

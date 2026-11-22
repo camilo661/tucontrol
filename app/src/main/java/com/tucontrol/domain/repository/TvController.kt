@@ -37,6 +37,18 @@ interface TvController {
     suspend fun disconnect()
 
     /**
+     * Sets the volume to [percent] of the maximum. Returns `false` when the TV neither accepts
+     * an absolute level nor reports its current one (so the right number of presses is unknown).
+     */
+    suspend fun setVolume(percent: Int): Boolean = false
+
+    /**
+     * Moves the video playing to [seconds] (or by [seconds] when [relative]) and keeps it
+     * playing. Returns `false` when the TV gives no way to jump to an exact time.
+     */
+    suspend fun seek(seconds: Int, relative: Boolean): Boolean = false
+
+    /**
      * Opens the TV settings. Most platforms expose no deep links into them, so the default is
      * the settings key; the user continues by voice ("baja", "selecciona").
      */

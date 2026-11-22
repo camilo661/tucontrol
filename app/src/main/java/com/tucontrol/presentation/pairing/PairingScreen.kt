@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.Pin
 import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,7 +34,6 @@ import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
 import com.tucontrol.R
 import com.tucontrol.domain.model.ConnectionState
-import com.tucontrol.presentation.common.rememberTextInputLauncher
 import com.tucontrol.presentation.components.ActionText
 import com.tucontrol.presentation.theme.StatusColors
 
@@ -46,11 +44,6 @@ fun PairingScreen(
     viewModel: PairingViewModel = viewModel(factory = PairingViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val enterPin = rememberTextInputLauncher(
-        label = stringResource(R.string.pairing_enter_pin),
-        onResult = viewModel::submitPin,
-    )
-
     ScreenScaffold {
         AnimatedContent(
             targetState = state.connection,
@@ -67,13 +60,10 @@ fun PairingScreen(
                     title = stringResource(R.string.pairing_accept_on_tv),
                 ) { StepIcon(Icons.Rounded.Tv, MaterialTheme.colorScheme.primary) }
 
-                ConnectionState.AwaitingPin -> PairingStep(
-                    title = stringResource(
-                        if (state.invalidPin) R.string.pairing_invalid_pin else R.string.pairing_enter_pin,
-                    ),
-                    titleColor = if (state.invalidPin) MaterialTheme.colorScheme.error else null,
-                    action = stringResource(R.string.pairing_enter_pin_button) to enterPin,
-                ) { StepIcon(Icons.Rounded.Pin, MaterialTheme.colorScheme.primary) }
+                ConnectionState.AwaitingPin -> PinKeypad(
+                    invalid = state.invalidPin,
+                    onSubmit = viewModel::submitPin,
+                )
 
                 ConnectionState.Connected -> PairingStep(
                     title = stringResource(R.string.pairing_success),

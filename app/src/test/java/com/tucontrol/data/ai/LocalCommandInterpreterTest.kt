@@ -22,6 +22,52 @@ class LocalCommandInterpreterTest {
     }
 
     @Test
+    fun `a volume level sets it instead of pressing`() {
+        mapOf(
+            "sube el volumen al 50%" to 50,
+            "Baja el volumen a 20 por ciento" to 20,
+            "pon el volumen en 80" to 80,
+            "volumen al cien por ciento" to 100,
+            "bájale al 10" to 10,
+            "sube el volumen hasta el 65" to 65,
+            "pon el volumen a cero" to 0,
+        ).forEach { (phrase, level) -> assertEquals(phrase, listOf(TvAction.SetVolume(level)), actions(phrase)) }
+    }
+
+    @Test
+    fun `seeking to a point in the video`() {
+        mapOf(
+            "adelanta hasta 1.30" to 90,
+            "adelanta hasta el 1:30" to 90,
+            "adelanta hasta 1,30 segundos" to 90,
+            "retrocede hasta el minuto 2" to 120,
+            "ve al minuto 5" to 300,
+            "pon el video en el minuto 1 y 30" to 90,
+            "adelanta hasta el minuto 3 con 15" to 195,
+            "salta al 1:02:05" to 3725,
+            "adelanta a los 90 segundos" to 90,
+        ).forEach { (phrase, seconds) -> assertEquals(phrase, listOf(TvAction.Seek(seconds)), actions(phrase)) }
+    }
+
+    @Test
+    fun `seeking by an amount`() {
+        assertEquals(listOf(TvAction.Seek(30, relative = true)), actions("adelanta 30 segundos"))
+        assertEquals(listOf(TvAction.Seek(-120, relative = true)), actions("regresa 2 minutos"))
+        assertEquals(listOf(TvAction.Seek(90, relative = true)), actions("avanza un minuto y medio"))
+        assertEquals(listOf(TvAction.Seek(-10, relative = true)), actions("retrocede diez segundos"))
+    }
+
+    @Test
+    fun `fast forward without a time still presses the key`() {
+        assertEquals(listOf(TvAction.Press(RemoteKey.FAST_FORWARD)), actions("adelanta"))
+    }
+
+    @Test
+    fun `a relative volume change still presses`() {
+        assertEquals(listOf(TvAction.Press(RemoteKey.VOLUME_DOWN, 10)), actions("baja el volumen en 10"))
+    }
+
+    @Test
     fun `volume without amount uses the default step`() {
         assertEquals(listOf(TvAction.Press(RemoteKey.VOLUME_DOWN, 3)), actions("Baja el volumen"))
     }

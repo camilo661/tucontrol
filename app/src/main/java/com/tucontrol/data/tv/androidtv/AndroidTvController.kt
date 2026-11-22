@@ -7,6 +7,7 @@ import com.tucontrol.data.tv.TvRejectedException
 import com.tucontrol.domain.model.ConnectionState
 import com.tucontrol.domain.model.InstalledApp
 import com.tucontrol.domain.model.RemoteKey
+import com.tucontrol.domain.model.TvAction
 import com.tucontrol.domain.model.SettingsSection
 import com.tucontrol.domain.model.StreamingApp
 import com.tucontrol.domain.model.TvDevice
@@ -57,6 +58,8 @@ class AndroidTvController(
     @Volatile private var nameForNextApp: String? = null
     private val foreground = MutableStateFlow<String?>(null)
     @Volatile private var isGoogleTv = false
+    /** Volume as last reported by the TV: (level, max). */
+    private val volume = MutableStateFlow<Pair<Int, Int>?>(null)
     private var voiceBegin: CompletableDeferred<Long>? = null
     @Volatile private var nextAgentAttempt = 0L
     private val voiceLock = Mutex()
@@ -113,6 +116,34 @@ class AndroidTvController(
                 int(2, DIRECTION_SHORT)
             }
         }
+    }
+
+    /**
+     * The TV only accepts volume keys, but it reports its level after each change: press
+     * towards the target, then correct once with the level the TV ends up reporting.
+     */
+    override suspend fun setVolume(percent: Int): Boolean {
+        ensureConnected()
+        if (volume.value == null) {
+            // Nudge the volume so the TV reports its level, leaving it where it was.
+            press(RemoteKey.VOLUME_UP)
+            delay(VOLUME_KEY_DELAY_MS)
+            press(RemoteKey.VOLUME_DOWN)
+            withTimeoutOrNull(VOLUME_REPORT_TIMEOUT_MS) { volume.first { it != null } } ?: return false
+        }
+        repeat(VOLUME_PASSES) {
+            val (level, max) = volume.value ?: return false
+            val target = (percent * max + 50) / 100
+            val diff = target - level
+            if (diff == 0) return true
+            val key = if (diff > 0) RemoteKey.VOLUME_UP else RemoteKey.VOLUME_DOWN
+            repeat(minOf(kotlin.math.abs(diff), max)) {
+                press(key)
+                delay(VOLUME_KEY_DELAY_MS)
+            }
+            delay(VOLUME_SETTLE_MS) // Let the final level report arrive.
+        }
+        return true
     }
 
     override suspend fun launch(app: StreamingApp) {
@@ -198,6 +229,19 @@ class AndroidTvController(
 
     override val canLaunchAnyApp: Boolean get() = agent.isConnected
 
+    override suspend fun seek(seconds: Int, relative: Boolean): Boolean {
+        ensureConnected()
+        if (agentReady() && runCatching { agent.seek(seconds * 1_000L, relative) }.getOrDefault(false)) return true
+        // Without screen access only relative jumps work, roughly, with the media keys (≈10 s each).
+        if (!relative) return false
+        val key = if (seconds >= 0) RemoteKey.FAST_FORWARD else RemoteKey.REWIND
+        repeat(((kotlin.math.abs(seconds) + 5) / 10).coerceIn(1, TvAction.MAX_REPEAT)) {
+            press(key)
+            delay(VOLUME_KEY_DELAY_MS * 3)
+        }
+        return true
+    }
+
     override suspend fun select(target: String): Boolean =
         agentReady() && runCatching { agent.select(target) }.getOrDefault(false)
 
@@ -271,6 +315,8 @@ class AndroidTvController(
 
     private suspend fun startPairing() = withContext(Dispatchers.IO) {
         val socket = openTls(PAIRING_PORT)
+        // Without a read timeout a TV that never answers leaves the watch on "Conectando" forever.
+        socket.soTimeout = PAIRING_RESPONSE_TIMEOUT_MS
         pairingSocket = socket
         serverKey = socket.session.peerCertificates.first().publicKey as RSAPublicKey
 
@@ -367,9 +413,12 @@ class AndroidTvController(
                     message.has(REMOTE_START) -> ready.complete(Unit)
                     message.has(REMOTE_VOICE_BEGIN) ->
                         voiceBegin?.complete(message.message(REMOTE_VOICE_BEGIN)?.long(1) ?: 0L)
-                    message.has(REMOTE_SET_VOLUME_LEVEL) && BuildConfig.DEBUG -> {
-                        val volume = message.message(REMOTE_SET_VOLUME_LEVEL)
-                        Log.d(TAG, "Volume on ${device.name}: ${volume?.long(7)}/${volume?.long(6)} muted=${volume?.long(8) == 1L}")
+                    message.has(REMOTE_SET_VOLUME_LEVEL) -> {
+                        val report = message.message(REMOTE_SET_VOLUME_LEVEL)
+                        val max = report?.long(6)?.toInt() ?: 0
+                        val level = report?.long(7)?.toInt() ?: 0
+                        if (max > 0) volume.value = level to max
+                        if (BuildConfig.DEBUG) Log.d(TAG, "Volume on ${device.name}: $level/$max muted=${report?.long(8) == 1L}")
                     }
                     message.has(REMOTE_IME_KEY_INJECT) -> {
                         // The TV reports the app in the foreground; learn it to open it by name later.
@@ -420,6 +469,11 @@ class AndroidTvController(
         const val PAIRING_PORT = 6467
         const val REMOTE_PORT = 6466
         const val CONNECT_TIMEOUT_MS = 4_000
+        const val VOLUME_KEY_DELAY_MS = 90L
+        const val VOLUME_SETTLE_MS = 700L
+        const val VOLUME_REPORT_TIMEOUT_MS = 2_000L
+        const val VOLUME_PASSES = 2
+        const val PAIRING_RESPONSE_TIMEOUT_MS = 10_000
         const val REMOTE_READY_TIMEOUT_MS = 8_000L
 
         const val SERVICE_NAME = "tucontrol"

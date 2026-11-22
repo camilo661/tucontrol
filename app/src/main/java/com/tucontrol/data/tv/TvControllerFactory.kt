@@ -24,6 +24,8 @@ class TvControllerFactory(
     private val settings: SettingsRepository,
     private val phrases: AssistantPhrases,
     private val adbKeys: File,
+    /** The media helper run on Android TVs over ADB (assets/tvhelper.dex). */
+    private val tvHelper: () -> ByteArray,
 ) {
     private val androidTvCertificates by lazy { AndroidTvCertificateStore() }
 
@@ -33,7 +35,7 @@ class TvControllerFactory(
         TvBrand.SAMSUNG -> SamsungTizenController(device, http.localTls, devices)
         TvBrand.LG -> LgWebOsController(device, http.localTls, devices)
         TvBrand.SONY -> SonyBraviaController(device, http.plain) { settings.settings.first().sonyPreSharedKey }
-        TvBrand.ANDROID_TV -> AndroidTvController(device, devices, androidTvCertificates, phrases, AdbScreenAgent(adbKeys))
+        TvBrand.ANDROID_TV -> AndroidTvController(device, devices, androidTvCertificates, phrases, AdbScreenAgent(adbKeys, tvHelper))
         TvBrand.UNKNOWN -> null
     }
 }

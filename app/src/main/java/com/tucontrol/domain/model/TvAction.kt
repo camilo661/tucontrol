@@ -44,6 +44,23 @@ sealed interface TvAction {
         }
     }
 
+    /** Sets the volume to [percent] of the TV's maximum ("pon el volumen al 50%"). */
+    data class SetVolume(val percent: Int) : TvAction {
+        init {
+            require(percent in 0..100) { "percent must be within 0..100" }
+        }
+    }
+
+    /**
+     * Jumps the video playing to [seconds] ("adelanta hasta el 1:30"), or by [seconds] when
+     * [relative] ("retrocede 20 segundos"; negative goes back), and leaves it playing.
+     */
+    data class Seek(val seconds: Int, val relative: Boolean = false) : TvAction {
+        init {
+            require(relative || seconds >= 0) { "an absolute time cannot be negative" }
+        }
+    }
+
     companion object {
         const val MAX_REPEAT = 30
         const val MAX_CHANNEL = 9_999

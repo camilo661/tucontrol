@@ -104,7 +104,11 @@
     <string name="action_select">Seleccionado</string>
     <string name="action_select_item">Eligiendo “%1$s”</string>
     <string name="action_plan_done">Listo (%1$d pasos) · %2$s</string>
-    <string name="action_play_first_result">Reproduciendo el primer resultado</string>
+    <string name="action_seek_to">Video al %1$s</string>
+    <string name="action_seek_forward">Adelantando %1$s</string>
+    <string name="action_seek_back">Retrocediendo %1$s</string>
+    <string name="action_set_volume">Volumen al %1$d%%</string>
+    <string name="action_play_first_result">Reproduciendo el resultado</string>
     <string name="action_back">Atrás</string>
     <string name="action_home">Inicio</string>
     <string name="action_menu">Menú</string>
@@ -137,6 +141,8 @@
 
     <!-- Remote extra keys -->
     <string name="key_rewind">Retroceder</string>
+    <string name="key_previous_hold_rewind">Anterior (mantén para retroceder)</string>
+    <string name="key_next_hold_forward">Siguiente (mantén para adelantar)</string>
     <string name="key_fast_forward">Adelantar</string>
     <string name="key_menu">Menú</string>
     <string name="key_input">Entrada</string>

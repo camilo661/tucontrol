@@ -107,6 +107,15 @@ class LocalCommandInterpreter : CommandInterpreter {
         val amount = extractNumber(words)
         val app = APP_ALIASES.entries.firstOrNull { (alias, _) -> has(alias) }?.value
 
+        // "adelanta hasta el 1:30", "ve al minuto 5", "retrocede 20 segundos": jump in the video.
+        TIME_TOKEN.find(clause)?.takeIf { has(*SEEK_VERBS) || has("video", "pelicula", "cancion") }?.let { token ->
+            val seconds = token.groupValues[2].toInt()
+            val isPoint = token.groupValues[1] == "c" || has("hasta") || POINT_BEFORE.containsMatchIn(clause.substring(0, token.range.first))
+            if (isPoint) return listOf(TvAction.Seek(seconds))
+            val back = has("retrocede", "retroceder", "retrocedele", "regresa", "regresalo", "regresala", "atrasa", "atrasalo", "devuelve", "devuelvelo", "atras")
+            return listOf(TvAction.Seek(if (back) -seconds else seconds, relative = true))
+        }
+
         // "busca stranger things en netflix" → search, in the named app or the one already open.
         // "busca dispositivos bluetooth" is about pairing, not content.
         SEARCH_PREFIX.find(clause)?.takeUnless { has(*BLUETOOTH_TERMS) }?.let { match ->
@@ -141,6 +150,11 @@ class LocalCommandInterpreter : CommandInterpreter {
         val isChannel = has("canal", "canales")
         val increase = has("sube", "subir", "subele", "aumenta", "aumentar", "mas", "siguiente", "arriba")
         val decrease = has("baja", "bajar", "bajale", "disminuye", "reduce", "menos", "anterior", "abajo")
+
+        // "sube el volumen al 50%", "pon el volumen en 20": a target level, not that many presses.
+        if (isVolume || has("subele", "bajale")) {
+            volumeTarget(clause, allowEn = !increase && !decrease)?.let { return listOf(TvAction.SetVolume(it)) }
+        }
 
         // "pon el canal 7" tunes directly; "sube dos canales" is handled below as presses.
         if (has("canal") && amount != null && !increase && !decrease) {
@@ -252,11 +266,39 @@ class LocalCommandInterpreter : CommandInterpreter {
     private fun contentAfter(clause: String, index: Int): String =
         clause.substring(index).replace(APP_SUFFIX, "").trim().replace(CONTENT_FILLER, "").trim()
 
+    /** The level in "al 50", "a 80 por ciento", "30 por ciento" ("en 20" only without sube/baja). */
+    private fun volumeTarget(clause: String, allowEn: Boolean): Int? {
+        fun level(word: String) = (word.toIntOrNull() ?: NUMBER_WORDS[word] ?: 0.takeIf { word == "cero" })?.takeIf { it in 0..100 }
+        VOLUME_PERCENT.findAll(clause).firstNotNullOfOrNull { level(it.groupValues[1]) }?.let { return it }
+        return VOLUME_LEVEL.findAll(clause)
+            .filter { allowEn || it.groupValues[1] != "en" }
+            .firstNotNullOfOrNull { level(it.groupValues[2]) }
+    }
+
     private fun extractNumber(words: Set<String>): Int? =
         words.firstNotNullOfOrNull { word -> word.toIntOrNull() ?: NUMBER_WORDS[word] }
 
+    /**
+     * Turns spoken times into tokens before punctuation and "y" are lost: a point in the video
+     * ("1:30", "1.30", "minuto 2 con 15") → `c<seconds>s`; a duration ("30 segundos",
+     * "2 minutos y medio") → `d<seconds>s`.
+     */
+    private fun markTimes(text: String): String {
+        fun n(word: String) = word.toIntOrNull() ?: NUMBER_WORDS[word] ?: 0
+        return text
+            .replace(CLOCK_HMS) { m -> " c${n(m.groupValues[1]) * 3600 + n(m.groupValues[2]) * 60 + n(m.groupValues[3])}s " }
+            .replace(CLOCK_MS) { m -> " c${n(m.groupValues[1]) * 60 + n(m.groupValues[2])}s " }
+            .replace(MINUTE_POINT) { m -> " c${n(m.groupValues[1]) * 60 + n(m.groupValues[2])}s " }
+            .replace(SECOND_POINT) { m -> " c${n(m.groupValues[1])}s " }
+            .replace(MINUTES) { m ->
+                val extra = m.groupValues[2].let { if (it == "medio") 30 else n(it) }
+                " d${n(m.groupValues[1]) * 60 + extra}s "
+            }
+            .replace(SECONDS) { m -> " d${n(m.groupValues[1])}s " }
+    }
+
     private fun normalize(text: String): String =
-        Normalizer.normalize(text.lowercase(), Normalizer.Form.NFD)
+        Normalizer.normalize(markTimes(text.lowercase()).replace("%", " por ciento "), Normalizer.Form.NFD)
             .replace(DIACRITICS, "")
             .replace(PUNCTUATION, " ")
             .replace(WHITESPACE, " ")
@@ -388,10 +430,31 @@ class LocalCommandInterpreter : CommandInterpreter {
 
         val APP_SUFFIX = Regex("\\s+(?:en|por)\\s+(?:netflix|youtube|you tube|prime video|amazon|prime|disney|spotify|hbo max|hbo|max|apple tv|paramount|crunchyroll|pluto|plex|vix)\\b.*$")
 
+        val CLOCK_HMS = Regex("\\b(\\d{1,2}):(\\d{2}):(\\d{2})\\b")
+        val CLOCK_MS = Regex("\\b(\\d{1,3})[:.,](\\d{2})\\b")
+        val MINUTE_POINT = Regex("\\b(?:el\\s+)?minuto\\s+(\\d+|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|quince|veinte|treinta|cuarenta|cincuenta)(?:\\s*(?:y|con)\\s*(\\d+)(?:\\s*segundos?)?)?\\b")
+        val SECOND_POINT = Regex("\\b(?:el\\s+)?segundo\\s+(\\d+)\\b")
+        val MINUTES = Regex("\\b(\\d+|un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|quince|veinte|treinta)\\s+minutos?(?:\\s*(?:y|con)\\s*(\\d+|medio)(?:\\s*segundos?)?)?\\b")
+        val SECONDS = Regex("\\b(\\d+|cinco|diez|quince|veinte|treinta|cuarenta|cincuenta)\\s+segundos?\\b")
+        val TIME_TOKEN = Regex("\\b([cd])(\\d+)s\\b")
+        /** "…al 2 minutos", "…a los 90 segundos": a duration said as a point in the video. */
+        val POINT_BEFORE = Regex("\\b(?:al|a|a los|en el|desde el|desde)\\s*$")
+        val SEEK_VERBS = arrayOf(
+            "adelanta", "adelantar", "adelantale", "adelantalo", "adelantala", "avanza", "avanzale", "avanzar",
+            "retrocede", "retroceder", "retrocedele", "regresa", "regresalo", "regresala", "atrasa", "atrasalo",
+            "devuelve", "devuelvelo", "salta", "saltate", "ve", "vete", "ir", "lleva", "llevalo", "mueve", "muevelo",
+            "ponlo", "ponla", "pon", "pasa", "pasalo",
+        )
+
+        val VOLUME_PERCENT = Regex("\\b([a-z0-9]+)\\s+(?:por ciento|porciento)\\b")
+        val VOLUME_LEVEL = Regex("\\b(al|a|en|hasta el|hasta)\\s+(?:el\\s+)?([a-z0-9]+)\\b")
+
         val NUMBER_WORDS = mapOf(
             "un" to 1, "uno" to 1, "una" to 1, "dos" to 2, "tres" to 3, "cuatro" to 4,
             "cinco" to 5, "seis" to 6, "siete" to 7, "ocho" to 8, "nueve" to 9,
-            "diez" to 10, "quince" to 15, "veinte" to 20, "treinta" to 30,
+            "diez" to 10, "quince" to 15, "veinte" to 20, "treinta" to 30, "cuarenta" to 40,
+            "cincuenta" to 50, "sesenta" to 60, "setenta" to 70, "ochenta" to 80, "noventa" to 90,
+            "cien" to 100,
         )
     }
 }

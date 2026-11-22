@@ -79,6 +79,7 @@ class AppContainer(context: Context) {
             settings = settingsRepository,
             phrases = AssistantPhrases(appContext.assets),
             adbKeys = File(appContext.filesDir, "adb"),
+            tvHelper = { appContext.assets.open("tvhelper.dex").use { it.readBytes() } },
         ),
         devices = deviceRepository,
         wifi = wifi,
